@@ -6,6 +6,7 @@ from functions import *
 from utils import *
 from model import *
 import torch.optim as optim
+from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import copy
@@ -26,9 +27,9 @@ if __name__ == "__main__":
     test_dataset = PennTreeBank(test_raw, lang)
 
     # Define the collate function
-    train_loader = DataLoader(train_dataset, batch_size=64, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"]),  shuffle=True)
-    dev_loader = DataLoader(dev_dataset, batch_size=128, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"]))
-    test_loader = DataLoader(test_dataset, batch_size=128, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"]))
+    train_loader = DataLoader(train_dataset, batch_size=64, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE),  shuffle=True)
+    dev_loader = DataLoader(dev_dataset, batch_size=128, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
+    test_loader = DataLoader(test_dataset, batch_size=128, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
 
     # Experiment also with a smaller or bigger model by changing hid and emb sizes 
     # A large model tends to overfit
@@ -39,7 +40,7 @@ if __name__ == "__main__":
     # Increasing the back propagation steps can be seen as a regularization step
 
     # With SGD try with an higher learning rate (> 1 for instance)
-    lr = 0.0001 # This is definitely not good for SGD
+    lr = 0.1 # This is definitely not good for SGD
     clip = 5 # Clip the gradient
 
     vocab_len = len(lang.word2id)

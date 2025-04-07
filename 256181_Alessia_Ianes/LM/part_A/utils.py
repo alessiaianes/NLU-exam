@@ -1,7 +1,8 @@
 # Add functions or classes used for data loading and preprocessing
 # Loading the corpus 
 import torch
-import torch.utils.data as data, DataLoader
+import torch.utils.data as data
+import torch.utils.data as DataLoader
 from functools import partial
 
 def read_file(path, eos_token="<eos>"):
@@ -90,7 +91,7 @@ class PennTreeBank (data.Dataset):
         return res
     
 
-def collate_fn(data, pad_token):
+def collate_fn(data, pad_token, DEVICE):
     def merge(sequences):
         '''
         merge from batch * sent_len to batch * max_len 

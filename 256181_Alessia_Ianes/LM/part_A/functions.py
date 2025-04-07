@@ -1,6 +1,8 @@
 # Add the class of your model only
 # Here is where you define the architecture of your model using pytorch
 import math
+import torch.nn as nn
+import torch
 def train_loop(data, optimizer, criterion, model, clip=5):
     model.train()
     loss_array = []
