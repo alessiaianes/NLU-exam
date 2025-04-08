@@ -12,6 +12,8 @@ from tqdm import tqdm
 import copy
 import pandas as pd  # for DataFrame
 import os
+import copy
+import math
 
 if __name__ == "__main__":
     DEVICE = 'cuda:0' # it can be changed with 'cpu' if you do not have a gpu
@@ -44,8 +46,10 @@ if __name__ == "__main__":
     # Create a directory to save the results, if it doesn't exist
     if not os.path.exists('results'):
         os.makedirs('results')
-        if not os.path.exists('RNN'):
+        if not os.path.exists('results/RNN'):
             os.makedirs('results/RNN')
+            if not os.path.exists('results/RNN/plots'):
+                os.makedirs('results/RNN/plots')
 
     for lr in lr_values:
         print(f"Training with learning rate: {lr}")
@@ -95,8 +99,6 @@ if __name__ == "__main__":
         print(f'Test ppl for lr {lr}: {final_ppl}')
 
 
-   
-
         # Save the results in a CSV file
         results_df = pd.DataFrame({
             'Epoch': sampled_epochs,
@@ -106,6 +108,37 @@ if __name__ == "__main__":
         results_df.to_csv(csv_filename, index=False)
         print('CSV file successfully saved in {csv_filename}')
         
+
+        # Create plots
+        fig, ax1 = plt.subplots(figsize=(10, 5))
+        ax1.plot(sampled_epochs, ppl_values, label='PPL Dev', color='red')
+        ax1.set_title(f'PPL Dev for lr={lr}')
+        ax1.set_xlabel('Epoch')
+        ax1.set_ylabel('PPL')
+        ax1.legend()
+        ax1.grid()
+
+        # Save ppl_dev plot
+        ppl_plot_filename = f'results/RNN/plots/RNN_ppl_plot_lr_{lr}.png'
+        plt.savefig(ppl_plot_filename)
+        plt.close(fig)
+        print(f"PPL plot saved: '{ppl_plot_filename}'")
+
+        # Create the loss plot
+        fig, ax2 = plt.subplots(figsize=(10, 5))
+        ax2.plot(sampled_epochs, losses_train, label='Train Loss', color='orange')
+        ax2.plot(sampled_epochs, losses_dev, label='Dev Loss', color='blue')
+        ax2.set_title(f'Train and Dev Loss for lr={lr}')
+        ax2.set_xlabel('Epoch')
+        ax2.set_ylabel('Loss')
+        ax2.legend()
+        ax2.grid()
+
+        # Save loss plot
+        loss_plot_filename = f'results/RNN/plots/RNN_loss_plot_lr_{lr}.png'
+        plt.savefig(loss_plot_filename)
+        plt.close(fig)
+
     
     # To save the model
     # path = 'model_bin/model_name.pt'
