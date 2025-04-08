@@ -37,72 +37,75 @@ if __name__ == "__main__":
     # A large model tends to overfit
     hid_size = 200
     emb_size = 300
-
-    # Don't forget to experiment with a lower training batch size
-    # Increasing the back propagation steps can be seen as a regularization step
-
-    # With SGD try with an higher learning rate (> 1 for instance)
-    lr = 0.0001 # This is definitely not good for SGD
-    clip = 5 # Clip the gradient
-
     vocab_len = len(lang.word2id)
+    clip = 5 # Clip the gradient
+    lr_values = [0.0001, 0.01, 0.1, 1, 1.5]
 
-    model = LM_RNN(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
-    model.apply(init_weights)
+    # Create a directory to save the results, if it doesn't exist
+    if not os.path.exists('results'):
+        os.makedirs('results')
+        if not os.path.exists('RNN'):
+            os.makedirs('results/RNN')
 
-    optimizer = optim.SGD(model.parameters(), lr=lr)
-    criterion_train = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"])
-    criterion_eval = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"], reduction='sum')
+    for lr in lr_values:
+        print(f"Training with learning rate: {lr}")
+
+        # Initialize the model
+        model = LM_RNN(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+        model.apply(init_weights)
+
+        optimizer = optim.SGD(model.parameters(), lr=lr)
+        criterion_train = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"])
+        criterion_eval = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"], reduction='sum')
     
     
-    n_epochs = 100
-    patience = 3
-    losses_train = []
-    losses_dev = []
-    sampled_epochs = []
-    best_ppl = math.inf
-    best_model = None
-    pbar = tqdm(range(1,n_epochs))
-    
-    ppl_values = []
+        n_epochs = 100
+        patience = 3
+        losses_train = []
+        losses_dev = []
+        sampled_epochs = []
+        best_ppl = math.inf
+        best_model = None
+        pbar = tqdm(range(1,n_epochs))
+        
+        ppl_values = []
     
     #If the PPL is too high try to change the learning rate
-    for epoch in pbar:
-        loss = train_loop(train_loader, optimizer, criterion_train, model, clip)    
-        if epoch % 1 == 0:
-            sampled_epochs.append(epoch)
-            losses_train.append(np.asarray(loss).mean())
-            ppl_dev, loss_dev = eval_loop(dev_loader, criterion_eval, model)
-            losses_dev.append(np.asarray(loss_dev).mean())
-            ppl_values.append(ppl_dev) # add PPL to list
-            pbar.set_description("PPL: %f" % ppl_dev)
-            if  ppl_dev < best_ppl: # the lower, the better
-                best_ppl = ppl_dev
-                best_model = copy.deepcopy(model).to('cpu')
-                patience = 3
-            else:
-                patience -= 1
+        for epoch in pbar:
+            loss = train_loop(train_loader, optimizer, criterion_train, model, clip)    
+            if epoch % 1 == 0:
+                sampled_epochs.append(epoch)
+                losses_train.append(np.asarray(loss).mean())
+                ppl_dev, loss_dev = eval_loop(dev_loader, criterion_eval, model)
+                losses_dev.append(np.asarray(loss_dev).mean())
+                ppl_values.append(ppl_dev) # add PPL to list
+                pbar.set_description("PPL: %f" % ppl_dev)
+                if  ppl_dev < best_ppl: # the lower, the better
+                    best_ppl = ppl_dev
+                    best_model = copy.deepcopy(model).to('cpu')
+                    patience = 3
+                else:
+                    patience -= 1
                 
             if patience <= 0: # Early stopping with patience
                 break # Not nice but it keeps the code clean
 
-    best_model.to(DEVICE)
-    final_ppl,  _ = eval_loop(test_loader, criterion_eval, best_model)    
-    print('Test ppl: ', final_ppl)
+        best_model.to(DEVICE)
+        final_ppl,  _ = eval_loop(test_loader, criterion_eval, best_model)    
+        print(f'Test ppl for lr {lr}: {final_ppl}')
 
 
-    # Crea la cartella 'results' se non esiste
-    if not os.path.exists('results'):
-        os.makedirs('results')
+   
 
-    # Salva i risultati in un file CSV nella cartella 'results'
-    results_df = pd.DataFrame({
-        'Epoch': sampled_epochs,
-        'PPL': ppl_values
-    })
-    results_df.to_csv('results/ppl_results.csv', index=False)
-    print("CSV file successfully saved in 'results/ppl_results.csv'")
-    
+        # Save the results in a CSV file
+        results_df = pd.DataFrame({
+            'Epoch': sampled_epochs,
+            'PPL': ppl_values
+        })
+        csv_filename = f'results/RNN/RNN_ppl_results_lr_{lr}.csv'
+        results_df.to_csv(csv_filename, index=False)
+        print('CSV file successfully saved in {csv_filename}')
+        
     
     # To save the model
     # path = 'model_bin/model_name.pt'
