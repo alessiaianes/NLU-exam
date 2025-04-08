@@ -10,6 +10,8 @@ from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import copy
+import pandas as pd  # for DataFrame
+import os
 
 if __name__ == "__main__":
     DEVICE = 'cuda:0' # it can be changed with 'cpu' if you do not have a gpu
@@ -40,7 +42,7 @@ if __name__ == "__main__":
     # Increasing the back propagation steps can be seen as a regularization step
 
     # With SGD try with an higher learning rate (> 1 for instance)
-    lr = 0.1 # This is definitely not good for SGD
+    lr = 0.0001 # This is definitely not good for SGD
     clip = 5 # Clip the gradient
 
     vocab_len = len(lang.word2id)
@@ -61,6 +63,9 @@ if __name__ == "__main__":
     best_ppl = math.inf
     best_model = None
     pbar = tqdm(range(1,n_epochs))
+    
+    ppl_values = []
+    
     #If the PPL is too high try to change the learning rate
     for epoch in pbar:
         loss = train_loop(train_loader, optimizer, criterion_train, model, clip)    
@@ -69,6 +74,7 @@ if __name__ == "__main__":
             losses_train.append(np.asarray(loss).mean())
             ppl_dev, loss_dev = eval_loop(dev_loader, criterion_eval, model)
             losses_dev.append(np.asarray(loss_dev).mean())
+            ppl_values.append(ppl_dev) # add PPL to list
             pbar.set_description("PPL: %f" % ppl_dev)
             if  ppl_dev < best_ppl: # the lower, the better
                 best_ppl = ppl_dev
@@ -83,6 +89,19 @@ if __name__ == "__main__":
     best_model.to(DEVICE)
     final_ppl,  _ = eval_loop(test_loader, criterion_eval, best_model)    
     print('Test ppl: ', final_ppl)
+
+
+    # Crea la cartella 'results' se non esiste
+    if not os.path.exists('results'):
+        os.makedirs('results')
+
+    # Salva i risultati in un file CSV nella cartella 'results'
+    results_df = pd.DataFrame({
+        'Epoch': sampled_epochs,
+        'PPL': ppl_values
+    })
+    results_df.to_csv('results/ppl_results.csv', index=False)
+    print("CSV file successfully saved in 'results/ppl_results.csv'")
     
     
     # To save the model
