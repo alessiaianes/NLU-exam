@@ -109,7 +109,7 @@ if __name__ == "__main__":
         })
         csv_filename = f'results/RNN/RNN_ppl_results_lr_{lr}.csv'
         results_df.to_csv(csv_filename, index=False)
-        print('CSV file successfully saved in {csv_filename}')
+        print(f'CSV file successfully saved in {csv_filename}')
         
 
         # Create ppl_dev plot
