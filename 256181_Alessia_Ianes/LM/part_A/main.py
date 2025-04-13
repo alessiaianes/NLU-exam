@@ -64,6 +64,9 @@ if __name__ == "__main__":
     
     
         n_epochs = 100
+        x_min, x_max = 0, n_epochs  # Limiti per l'asse x (epoche)
+        ppl_min, ppl_max = 0, 500  # Limiti per l'asse y (PPL)
+        loss_min, loss_max = 0, 10  # Limiti per l'asse y (Loss)
         patience = 3
         losses_train = []
         losses_dev = []
@@ -109,12 +112,14 @@ if __name__ == "__main__":
         print('CSV file successfully saved in {csv_filename}')
         
 
-        # Create plots
+        # Create ppl_dev plot
         fig, ax1 = plt.subplots(figsize=(10, 5))
         ax1.plot(sampled_epochs, ppl_values, label='PPL Dev', color='red')
         ax1.set_title(f'PPL Dev for lr={lr}')
         ax1.set_xlabel('Epoch')
         ax1.set_ylabel('PPL')
+        ax1.set_xlim(x_min, x_max)
+        ax1.set_ylim(ppl_min, ppl_max)
         ax1.legend()
         ax1.grid()
 
@@ -131,6 +136,8 @@ if __name__ == "__main__":
         ax2.set_title(f'Train and Dev Loss for lr={lr}')
         ax2.set_xlabel('Epoch')
         ax2.set_ylabel('Loss')
+        ax1.set_xlim(x_min, x_max)
+        ax1.set_ylim(loss_min, loss_max)
         ax2.legend()
         ax2.grid()
 
