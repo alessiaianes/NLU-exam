@@ -136,8 +136,8 @@ if __name__ == "__main__":
         ax2.set_title(f'Train and Dev Loss for lr={lr}')
         ax2.set_xlabel('Epoch')
         ax2.set_ylabel('Loss')
-        ax1.set_xlim(x_min, x_max)
-        ax1.set_ylim(loss_min, loss_max)
+        ax2.set_xlim(x_min, x_max)
+        ax2.set_ylim(loss_min, loss_max)
         ax2.legend()
         ax2.grid()
 
