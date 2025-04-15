@@ -36,31 +36,28 @@ if __name__ == "__main__":
     emb_size = [300] # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr_values = [0.001, 0.01, 0.1, 1, 1.5] # Learning rates to test
+    lr_values = [0.01, 0.1, 1, 1.2, 1.5] # Learning rates to test
     batch_sizeT = [32, 64, 128]
 
     # Create a directory to save the results, if it doesn't exist
     os.makedirs('results/LSTM/plots', exist_ok=True)
 
     all_results = []
-    # Train with differen batch size
+    # Train with differen batch size, emb size, hid size and learning rate
     for bs in batch_sizeT:
-        print(f"Training with batch size: {bs}")
-        # Define the collate function
-        train_loader = DataLoader(train_dataset, batch_size=bs, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE),  shuffle=True)
-        dev_loader = DataLoader(dev_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
-        test_loader = DataLoader(test_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
-        
         for emb in emb_size:
             for hid in hid_size:
-                print(f"Training with emb size: {emb} and hid size: {hid}")
-                # Initialize the model
-                model = LM_LSTM(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
-                model.apply(init_weights)
-
-                # Train with different learning rates
                 for lr in lr_values:
-                    print(f"Training with learning rate: {lr}")
+
+                    print(f"Training with batch size: {bs} emb size: {emb} hid size: {hid} and lr {lr}")
+                    # Define the collate function
+                    train_loader = DataLoader(train_dataset, batch_size=bs, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE),  shuffle=True)
+                    dev_loader = DataLoader(dev_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
+                    test_loader = DataLoader(test_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
+                    
+                    # Initialize the model
+                    model = LM_LSTM(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+                    model.apply(init_weights)
 
                     optimizer = optim.SGD(model.parameters(), lr=lr)
                     criterion_train = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"])
