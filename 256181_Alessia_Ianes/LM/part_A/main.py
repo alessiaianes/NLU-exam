@@ -56,7 +56,7 @@ if __name__ == "__main__":
                     test_loader = DataLoader(test_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
                     
                     # Initialize the model
-                    model = LM_LSTM(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+                    model = LM_LSTM_dropout(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
                     model.apply(init_weights)
 
                     optimizer = optim.SGD(model.parameters(), lr=lr)
