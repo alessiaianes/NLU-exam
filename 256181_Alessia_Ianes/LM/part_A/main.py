@@ -36,7 +36,8 @@ if __name__ == "__main__":
     emb_size = [300] # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr_values = [0.01, 0.1, 1, 1.2, 1.5] # Learning rates to test
+    #lr_values = [0.01, 0.1, 1, 1.2, 1.5] # Learning rates to test with SGD
+    lr_values = [0.0001, 0.0005, 0.001, 0.005, 0.01] # Learning rates to test with AdamW
     batch_sizeT = [32, 64, 128]
 
     # Create a directory to save the results, if it doesn't exist
@@ -57,9 +58,12 @@ if __name__ == "__main__":
                     
                     # Initialize the model
                     model = LM_LSTM_dropout(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+                    # model = LM_LSTM(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+                    # model = LM_RNN(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
                     model.apply(init_weights)
 
-                    optimizer = optim.SGD(model.parameters(), lr=lr)
+                    optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+                    # optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
                     criterion_train = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"])
                     criterion_eval = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"], reduction='sum')
     
