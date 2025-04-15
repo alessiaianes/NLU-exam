@@ -32,20 +32,15 @@ if __name__ == "__main__":
 
     # Experiment also with a smaller or bigger model by changing hid and emb sizes 
     # A large model tends to overfit
-    hid_size = [100, 200, 300, 400, 500] # Hidden size to test
-    emb_size = [100, 200, 300, 500, 600] # Embedding size to test
+    hid_size = [200] # Hidden size to test
+    emb_size = [300] # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr_values = [0.001, 0.01, 0.1, 0.5, 0.9] # Learning rates to test
+    lr_values = [0.001, 0.01, 0.1, 1, 1.5] # Learning rates to test
     batch_sizeT = [32, 64, 128]
 
     # Create a directory to save the results, if it doesn't exist
-    if not os.path.exists('results'):
-        os.makedirs('results')
-        if not os.path.exists('results/LSTM'):
-            os.makedirs('results/LSTM')
-            if not os.path.exists('results/LSTM/plots'):
-                os.makedirs('results/LSTM/plots')
+    os.makedirs('results/LSTM/plots', exist_ok=True)
 
     all_results = []
     # Train with differen batch size
