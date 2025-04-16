@@ -1,0 +1,2 @@
+Batch Size,Embedding Size,Hidden Size,Learning Rate,Final PPL
+128,300,200,0.001,122.57333074660161
