@@ -36,9 +36,9 @@ if __name__ == "__main__":
     emb_size = [300] # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    # lr_values = [0.01, 0.1, 0.5, 1.0, 1.2] # Learning rates to test with SGD
-    lr_values = [0.0001, 0.0005, 0.001, 0.005, 0.01] # Learning rates to test with AdamW
-    batch_sizeT = [32, 64, 128]
+    lr_values = [0.01, 0.1, 1.0, 1.5, 2] # Learning rates to test with SGD
+    # lr_values = [0.0001, 0.0005, 0.001, 0.005, 0.01] # Learning rates to test with AdamW
+    batch_sizeT = [64]
 
     # Create a directory to save the results, if it doesn't exist
     os.makedirs('results/LSTM_dropout_ADAM/plots', exist_ok=True)
@@ -124,7 +124,7 @@ if __name__ == "__main__":
                         'PPL': ppl_values,
                         'Test PPL': [final_ppl] * len(sampled_epochs)
                     })
-                    csv_filename = f'results/LSTM_dropout_ADAM/LSTM_ppl_results_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.csv'
+                    csv_filename = f'results/LSTM_dropout_ADAM/LSTM_dropout_ADAM_ppl_results_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.csv'
                     results_df.to_csv(csv_filename, index=False)
                     print(f'CSV file successfully saved in {csv_filename}')
                     
@@ -141,7 +141,7 @@ if __name__ == "__main__":
                     ax1.grid()
 
                     # Save ppl_dev plot
-                    ppl_plot_filename = f'results/LSTM_dropout_ADAM/plots/LSTM_ppl_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
+                    ppl_plot_filename = f'results/LSTM_dropout_ADAM/plots/LSTM_dropout_ADAM_ppl_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
                     plt.savefig(ppl_plot_filename)
                     plt.close(fig)
                     print(f"PPL plot saved: '{ppl_plot_filename}'")
@@ -159,7 +159,7 @@ if __name__ == "__main__":
                     ax2.grid()
 
                     # Save loss plot
-                    loss_plot_filename = f'results/LSTM_dropout_ADAM/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
+                    loss_plot_filename = f'results/LSTM_dropout_ADAM/plots/LSTM_dropout_ADAM_loss_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
                     plt.savefig(loss_plot_filename)
                     plt.close(fig)
 
