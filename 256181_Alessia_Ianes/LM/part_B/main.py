@@ -158,7 +158,7 @@ if __name__ == "__main__":
 
 
     pivot_table = results_df.pivot_table(
-        values='Final PPL',
+        values='Test PPL',
         index='Batch Size',  # Rows: Batch Size
         columns='Learning Rate'  # Columns: Learning Rate
     )
