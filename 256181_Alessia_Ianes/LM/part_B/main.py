@@ -14,6 +14,7 @@ import pandas as pd  # for DataFrame
 import os
 import math
 import seaborn as sns
+import time
 
 
 if __name__ == "__main__":
@@ -45,6 +46,12 @@ if __name__ == "__main__":
     os.makedirs('results/LSTM_weight_tying/plots', exist_ok=True)
 
     all_results = []
+    total_configurations = len(batch_sizeT) * len(lr_values)  # Numero totale di configurazioni
+    current_configuration = 0  # Contatore per la configurazione corrente
+    start_time = time.time()  # Tempo di inizio dell'esecuzione
+
+
+
     # Train with differen batch size, emb size, hid size and learning rate
     for bs in batch_sizeT:
         for lr in lr_values:
@@ -77,6 +84,8 @@ if __name__ == "__main__":
             pbar = tqdm(range(1,n_epochs))
             
             ppl_values = []
+
+            configuration_start_time = time.time()  # Tempo di inizio della configurazione corrente
             
         
         #If the PPL is too high try to change the learning rate
@@ -88,7 +97,28 @@ if __name__ == "__main__":
                     ppl_dev, loss_dev = eval_loop(dev_loader, criterion_eval, model)
                     losses_dev.append(np.asarray(loss_dev).mean())
                     ppl_values.append(ppl_dev) # add PPL to list
-                    pbar.set_description(f"Epoch: {epoch} PPL: {ppl_dev:.2f}")
+
+                    # Calcola il tempo trascorso per la configurazione corrente
+                    elapsed_time = time.time() - configuration_start_time
+                    avg_epoch_time = elapsed_time / epoch if epoch > 0 else 0  # Tempo medio per epoca
+
+                    # Calcola il tempo rimanente per la configurazione corrente
+                    remaining_epochs_current = n_epochs - epoch
+                    remaining_time_current = avg_epoch_time * remaining_epochs_current
+
+                    # Calcola il tempo rimanente per tutte le configurazioni
+                    remaining_configurations = total_configurations - current_configuration - 1
+                    remaining_time_total = remaining_time_current + remaining_configurations * (elapsed_time / epoch if epoch > 0 else 0)
+
+                    # Converti il tempo rimanente in ore, minuti e secondi
+                    remaining_hours = int(remaining_time_total // 3600)
+                    remaining_minutes = int((remaining_time_total % 3600) // 60)
+                    remaining_seconds = int(remaining_time_total % 60)
+
+
+                     # Aggiorna la progress bar con il tempo stimato
+                    pbar.set_description(f"Epoch: {epoch} PPL: {ppl_dev:.2f} ETA: {remaining_hours}h {remaining_minutes}m {remaining_seconds}s")
+
                     if  ppl_dev < best_ppl: # the lower, the better
                         best_ppl = ppl_dev
                         best_model = copy.deepcopy(model).to('cpu')
@@ -155,6 +185,8 @@ if __name__ == "__main__":
             loss_plot_filename = f'results/LSTM_weight_tying/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}.png'
             plt.savefig(loss_plot_filename)
             plt.close(fig)
+
+            current_configuration += 1  # Incrementa il contatore delle configurazioni
 
 
 
