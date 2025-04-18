@@ -218,6 +218,8 @@ if __name__ == "__main__":
     # print(f"Heatmap saved: '{heatmap_filename}'")
 
 
+    pd.DataFrame(all_results).to_csv('results/LSTM_wt_vd/all_results.csv', index=False)
+    print(f'All results successfully saved in results/LSTM_wt_vd/all_results.csv')
 
     # After the loops, find the best configuration:
     best_result = min(all_results, key=lambda x: x['Test PPL'])
