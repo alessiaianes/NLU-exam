@@ -38,7 +38,7 @@ if __name__ == "__main__":
     emb_size = 300 # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr_values = [0.01, 0.05, 0.1, 0.2, 0.5, 1] # Learning rates to test
+    lr_values = [1.5, 1.7, 2, 2.5, 2.7, 3] # Learning rates to test
     batch_sizeT = [32, 64, 128]
 
     # Create a directory to save the results, if it doesn't exist
