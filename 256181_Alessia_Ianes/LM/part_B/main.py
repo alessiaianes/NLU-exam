@@ -190,7 +190,7 @@ if __name__ == "__main__":
 
 
 
-    pivot_table = pd.DataFrame([all_results]).pivot_table(
+    pivot_table = pd.DataFrame(all_results).pivot_table(
         values='Test PPL',
         index='Batch Size',  # Rows: Batch Size
         columns='Learning Rate'  # Columns: Learning Rate
