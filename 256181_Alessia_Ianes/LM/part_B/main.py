@@ -106,7 +106,7 @@ if __name__ == "__main__":
             all_results.append({
                 'Batch Size': bs,
                 'Learning Rate': lr,
-                'Final PPL': final_ppl
+                'Test PPL': final_ppl
             })    
             print(f'Test ppl for batch size {bs}, learning rate {lr}: {final_ppl}')
 
@@ -157,7 +157,8 @@ if __name__ == "__main__":
             plt.close(fig)
 
 
-    pivot_table = results_df.pivot_table(
+
+    pivot_table = pd.DataFrame([all_results]).pivot_table(
         values='Test PPL',
         index='Batch Size',  # Rows: Batch Size
         columns='Learning Rate'  # Columns: Learning Rate
@@ -165,7 +166,7 @@ if __name__ == "__main__":
 
     # Visualize the results with a heatmap
     plt.figure(figsize=(12, 8))
-    sns.heatmap(pivot_table, annot=True, fmt=".2f", cmap="coolwarm", cbar_kws={'label': 'Final PPL'})
+    sns.heatmap(pivot_table, annot=True, fmt=".2f", cmap="coolwarm", cbar_kws={'label': 'Test PPL'})
     plt.title("Heatmap of Final PPL for Different Configurations")
     plt.xlabel("Learning Rate")
     plt.ylabel("Batch Size")
@@ -180,7 +181,7 @@ if __name__ == "__main__":
 
 
     # After the loops, find the best configuration:
-    best_result = min(all_results, key=lambda x: x['Final PPL'])
+    best_result = min(all_results, key=lambda x: x['Test PPL'])
     print(f"Best configuration: {best_result}")
     best_result_df = pd.DataFrame([best_result])
     best_result_df.to_csv('results/LSTM_weight_tying/best_configuration.csv', index=False)
