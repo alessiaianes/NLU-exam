@@ -39,18 +39,23 @@ if __name__ == "__main__":
     emb_size = 300 # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr_values = [0.5, 0.8, 1.0, 1.2, 1.5, 1.7, 2, 2.5, 2.7, 3, 3.5, 4.0] # Learning rates to test
+    lr_values = [0.5, 1.0, 1.5, 2, 2.5, 3.0] # Learning rates to test
     batch_sizeT = [32, 64, 128]
-    emb_dout = [0.1, 0.15, 0.2]
-    out_dout = [0.2, 0.3, 0.4]
+    emb_dout = [0.1]
+    out_dout = [0.4]
 
     # Create a directory to save the results, if it doesn't exist
     os.makedirs('results/LSTM_wt_vd/plots', exist_ok=True)
 
     all_results = []
     total_configurations = len(batch_sizeT) * len(lr_values) * len(emb_dout) * len(out_dout)  # Numero totale di configurazioni
+    n_epochs = 100
+    total_epochs = total_configurations * n_epochs
     current_configuration = 0  # Contatore per la configurazione corrente
-    start_time = time.time()  # Tempo di inizio dell'esecuzione
+    current_epoch = 0  # Contatore per la configurazione corrente
+    script_start_time = time.time()  # Tempo di inizio dell'esecuzione dello script
+    initial_eta_printed = False
+    
 
 
 
@@ -59,7 +64,9 @@ if __name__ == "__main__":
         for lr in lr_values:
             for ed in emb_dout:
                 for od in out_dout:
-                    print(f"Starting run #{current_configuration + 1}")
+                    config_start_time = time.time()  # Tempo di inizio dell'esecuzione
+                    print(f"Starting run #{current_configuration + 1}/{total_configurations}")
+
                     print(f"Training with batch size: {bs}, lr {lr}, emb_dropout {ed}, out_dropout {od}")
                     # Define the collate function
                     train_loader = DataLoader(train_dataset, batch_size=bs, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE),  shuffle=True)
@@ -75,7 +82,7 @@ if __name__ == "__main__":
                     criterion_eval = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"], reduction='sum')
 
 
-                    n_epochs = 100
+                    
                     x_min, x_max = 0, n_epochs  # Limiti per l'asse x (epoche)
                     ppl_min, ppl_max = 0, 500  # Limiti per l'asse y (PPL)
                     loss_min, loss_max = 0, 10  # Limiti per l'asse y (Loss)
@@ -89,39 +96,89 @@ if __name__ == "__main__":
                     
                     ppl_values = []
 
-                    configuration_start_time = time.time()  # Tempo di inizio della configurazione corrente
-                    
+
+                    elapsed_time = time.time() - config_start_time
+
+                    # Calculate the average time per configuration
+                    avg_config_time = elapsed_time / (current_configuration + 1) if current_configuration > 0 else 0
+
+                    # Calculate the remaining configurations
+                    remaining_configurations = total_configurations - (current_configuration + 1)
+                    remaining_time_total = avg_config_time * remaining_configurations
+
+                    # Convert the remaining time to hours, minutes, and seconds
+                    remaining_hours = int(remaining_time_total // 3600)
+                    remaining_minutes = int((remaining_time_total % 3600) // 60)
+                    remaining_seconds = int(remaining_time_total % 60)
+
+                    print(f"ETA: {remaining_hours}h {remaining_minutes}m {remaining_seconds}s")
+
+                    # elapsed_time = time.time() - start_time
+
+                    # # Calculate the average time per configuration
+                    # avg_config_time = elapsed_time / (current_configuration + 1) if current_configuration > 0 else 0
+
+                    # # Calculate the remaining configurations
+                    # remaining_configurations = total_configurations - (current_configuration + 1)
+                    # remaining_time_total = avg_config_time * remaining_configurations
+
+                    # # Convert the remaining time to hours, minutes, and seconds
+                    # remaining_hours = int(remaining_time_total // 3600)
+                    # remaining_minutes = int((remaining_time_total % 3600) // 60)
+                    # remaining_seconds = int(remaining_time_total % 60)
+
+                    # print(f"ETA: {remaining_hours}h {remaining_minutes}m {remaining_seconds}s")
+
                 
                     #If the PPL is too high try to change the learning rate
                     for epoch in pbar:
                         loss = train_loop(train_loader, optimizer, criterion_train, model, clip)    
                         if epoch % 1 == 0:
+                            epoch_start_time = time.time()
                             sampled_epochs.append(epoch)
                             losses_train.append(np.asarray(loss).mean())
                             ppl_dev, loss_dev = eval_loop(dev_loader, criterion_eval, model)
                             losses_dev.append(np.asarray(loss_dev).mean())
                             ppl_values.append(ppl_dev) # add PPL to list
 
-                            # Calcola il tempo trascorso per la configurazione corrente
-                            elapsed_time = time.time() - configuration_start_time
-                            avg_epoch_time = elapsed_time / epoch if epoch > 0 else 0  # Tempo medio per epoca
+                            # current_epoch += 1  # Incrementa il contatore delle epoche
+                            # elapsed_time = time.time() - start_time
 
-                            # Calcola il tempo rimanente per la configurazione corrente
-                            remaining_epochs_current = n_epochs - epoch
-                            remaining_time_current = avg_epoch_time * remaining_epochs_current
+                            # # Calcola il tempo medio per epoca
+                            # avg_epoch_time = elapsed_time / current_epoch if current_epoch > 0 else 0
 
-                            # Calcola il tempo rimanente per tutte le configurazioni
-                            remaining_configurations = total_configurations - current_configuration - 1
-                            remaining_time_total = remaining_time_current + remaining_configurations * (elapsed_time / epoch if epoch > 0 else 0)
+                            # # Calcola il tempo rimanente per tutte le epoche
+                            # remaining_epochs = total_epochs - current_epoch
+                            # remaining_time_total = avg_epoch_time * remaining_epochs
+
+                            # # Converti il tempo rimanente in ore, minuti e secondi
+                            # remaining_hours = int(remaining_time_total // 3600)
+                            # remaining_minutes = int((remaining_time_total % 3600) // 60)
+                            # remaining_seconds = int(remaining_time_total % 60)
+
+                            # epoch_duration = time.time() - epoch_start_time
+                            current_epoch += 1  # Incrementa il contatore delle epoche
+                            elapsed_time = time.time() - config_start_time
+
+                            # Calcola il tempo medio per epoca
+                            avg_epoch_time = elapsed_time / current_epoch if current_epoch > 0 else 0
+
+                            # Calcola il tempo rimanente per tutte le epoche
+                            remaining_epochs = total_epochs - current_epoch
+                            remaining_time_total = avg_epoch_time * remaining_epochs
 
                             # Converti il tempo rimanente in ore, minuti e secondi
                             remaining_hours = int(remaining_time_total // 3600)
                             remaining_minutes = int((remaining_time_total % 3600) // 60)
                             remaining_seconds = int(remaining_time_total % 60)
 
+                            # Aggiorna la progress bar con il tempo stimato
+
 
                             # Aggiorna la progress bar con il tempo stimato
-                            pbar.set_description(f"Epoch: {epoch} PPL: {ppl_dev:.2f} ETA: {remaining_hours}h {remaining_minutes}m {remaining_seconds}s")
+                            pbar.set_description(
+                                f"Epoch: {epoch} PPL: {ppl_dev:.2f} ETA: {remaining_hours}h {remaining_minutes}m {remaining_seconds}s"
+                            )
 
                             if  ppl_dev < best_ppl: # the lower, the better
                                 best_ppl = ppl_dev
@@ -130,8 +187,7 @@ if __name__ == "__main__":
                             else:
                                 patience -= 1
                             
-                        if patience <= 0: # Early stopping with patience
-                            print(f"Early stopping triggered at epoch {epoch} for lr={lr}, bs={bs}, emb_dout={ed}, out_dout={od}")
+                        if patience <= 0: # Early stopping triggered at epoch {epoch} for lr={lr}, bs={bs}, emb_dout={ed}, out_dout={od}")
                             break # Not nice but it keeps the code clean
 
                     best_model.to(DEVICE)
@@ -140,8 +196,6 @@ if __name__ == "__main__":
                     all_results.append({
                         'Batch Size': bs,
                         'Learning Rate': lr,
-                        'Embedding Dropout': ed,
-                        'Output Dropout': od,
                         'Test PPL': final_ppl
                     })    
                     print(f'Test ppl for batch size {bs}, learning rate {lr}, embedding dropout {ed}, output dropout {od}: {final_ppl}')
@@ -193,29 +247,29 @@ if __name__ == "__main__":
                     plt.close(fig)
 
                     current_configuration += 1  # Incrementa il contatore delle configurazioni
-                    print(f"Ending run #{current_configuration + 1}")
+                    print(f"Ending run #{current_configuration}/{total_configurations}")
 
 
 
-    # pivot_table = pd.DataFrame(all_results).pivot_table(
-    #     values='Test PPL',
-    #     index='Batch Size',  # Rows: Batch Size
-    #     columns='Learning Rate'  # Columns: Learning Rate
-    # )
+    pivot_table = pd.DataFrame(all_results).pivot_table(
+        values='Test PPL',
+        index='Batch Size',  # Rows: Batch Size
+        columns='Learning Rate'  # Columns: Learning Rate
+    )
 
-    # # Visualize the results with a heatmap
-    # plt.figure(figsize=(12, 8))
-    # sns.heatmap(pivot_table, annot=True, fmt=".2f", cmap="coolwarm", cbar_kws={'label': 'Test PPL'})
-    # plt.title("Heatmap of Final PPL for Different Configurations")
-    # plt.xlabel("Learning Rate")
-    # plt.ylabel("Batch Size")
-    # plt.tight_layout()
+    # Visualize the results with a heatmap
+    plt.figure(figsize=(12, 8))
+    sns.heatmap(pivot_table, annot=True, fmt=".2f", cmap="coolwarm", cbar_kws={'label': 'Test PPL'})
+    plt.title("Heatmap of Final PPL for Different Configurations")
+    plt.xlabel("Learning Rate")
+    plt.ylabel("Batch Size")
+    plt.tight_layout()
 
-    # # Save the heatmap
-    # heatmap_filename = 'results/LSTM_wt_vd/plots/heatmap_final_ppl.png'
-    # plt.savefig(heatmap_filename)
-    # plt.close()
-    # print(f"Heatmap saved: '{heatmap_filename}'")
+    # Save the heatmap
+    heatmap_filename = 'results/LSTM_wt_vd/plots/heatmap_final_ppl.png'
+    plt.savefig(heatmap_filename)
+    plt.close()
+    print(f"Heatmap saved: '{heatmap_filename}'")
 
 
     pd.DataFrame(all_results).to_csv('results/LSTM_wt_vd/all_results.csv', index=False)
