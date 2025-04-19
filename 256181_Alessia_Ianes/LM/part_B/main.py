@@ -61,6 +61,7 @@ if __name__ == "__main__":
             for ed in emb_dout:
                 for od in out_dout:
                     config_start_time = time.time()  # Tempo di inizio dell'esecuzione
+                    print("*"*80)
                     print(f"Starting run #{current_configuration + 1}/{total_configurations}")
 
                     print(f"Training with batch size: {bs}, lr {lr}, emb_dropout {ed}, out_dropout {od}")
@@ -126,7 +127,7 @@ if __name__ == "__main__":
                         'Learning Rate': lr,
                         'Test PPL': final_ppl
                     })    
-                    print(f'Test ppl for batch size {bs}, learning rate {lr}, embedding dropout {ed}, output dropout {od}: {final_ppl}')
+                    print(f'Test ppl for batch size {bs}, learning rate {lr}, embedding dropout {ed}, output dropout {od}: {round(final_ppl, 2)}')
 
 
                     # Save the results in a CSV file
@@ -176,6 +177,7 @@ if __name__ == "__main__":
 
                     current_configuration += 1  # Incrementa il contatore delle configurazioni
                     print(f"Ending run #{current_configuration}/{total_configurations}")
+                    print("*"*80)
 
                     # Estimate remaining time
                     elapsed_time = time.time() - script_start_time
@@ -187,7 +189,9 @@ if __name__ == "__main__":
                         # Convert seconds to a more readable format (HH:MM:SS)
                         hours, rem = divmod(estimated_remaining_time, 3600)
                         minutes, seconds = divmod(rem, 60)
+                        print("=" * 80)
                         print(f"Estimated time remaining: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}")
+                        print("=" * 80)
                     else:
                         print("Estimating remaining time after the first configuration...")
 
