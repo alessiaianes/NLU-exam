@@ -18,6 +18,7 @@ import time
 
 
 if __name__ == "__main__":
+    script_start_time = time.time() # Record start time of the script
     DEVICE = 'cuda:0' # it can be changed with 'cpu' if you do not have a gpu
     train_raw = read_file("dataset/PennTreeBank/ptb.train.txt")
     dev_raw = read_file("dataset/PennTreeBank/ptb.valid.txt")
@@ -39,7 +40,7 @@ if __name__ == "__main__":
     emb_size = 300 # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr_values = [0.5, 1.0, 1.5, 2, 2.5, 3.0] # Learning rates to test
+    lr_values = [2.5, 2.7, 3.2, 3.5, 4.0] # Learning rates to test
     batch_sizeT = [32, 64, 128]
     emb_dout = [0.1]
     out_dout = [0.4]
@@ -49,17 +50,12 @@ if __name__ == "__main__":
 
     all_results = []
     total_configurations = len(batch_sizeT) * len(lr_values) * len(emb_dout) * len(out_dout)  # Numero totale di configurazioni
-    n_epochs = 100
-    total_epochs = total_configurations * n_epochs
-    current_configuration = 0  # Contatore per la configurazione corrente
-    current_epoch = 0  # Contatore per la configurazione corrente
-    script_start_time = time.time()  # Tempo di inizio dell'esecuzione dello script
-    initial_eta_printed = False
     
 
 
 
     # Train with differen batch size, emb size, hid size and learning rate
+    current_configuration = 0 # Initialize configuration counter
     for bs in batch_sizeT:
         for lr in lr_values:
             for ed in emb_dout:
@@ -82,7 +78,7 @@ if __name__ == "__main__":
                     criterion_eval = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"], reduction='sum')
 
 
-                    
+                    n_epochs = 100
                     x_min, x_max = 0, n_epochs  # Limiti per l'asse x (epoche)
                     ppl_min, ppl_max = 0, 500  # Limiti per l'asse y (PPL)
                     loss_min, loss_max = 0, 10  # Limiti per l'asse y (Loss)
@@ -96,39 +92,6 @@ if __name__ == "__main__":
                     
                     ppl_values = []
 
-
-                    elapsed_time = time.time() - config_start_time
-
-                    # Calculate the average time per configuration
-                    avg_config_time = elapsed_time / (current_configuration + 1) if current_configuration > 0 else 0
-
-                    # Calculate the remaining configurations
-                    remaining_configurations = total_configurations - (current_configuration + 1)
-                    remaining_time_total = avg_config_time * remaining_configurations
-
-                    # Convert the remaining time to hours, minutes, and seconds
-                    remaining_hours = int(remaining_time_total // 3600)
-                    remaining_minutes = int((remaining_time_total % 3600) // 60)
-                    remaining_seconds = int(remaining_time_total % 60)
-
-                    print(f"ETA: {remaining_hours}h {remaining_minutes}m {remaining_seconds}s")
-
-                    # elapsed_time = time.time() - start_time
-
-                    # # Calculate the average time per configuration
-                    # avg_config_time = elapsed_time / (current_configuration + 1) if current_configuration > 0 else 0
-
-                    # # Calculate the remaining configurations
-                    # remaining_configurations = total_configurations - (current_configuration + 1)
-                    # remaining_time_total = avg_config_time * remaining_configurations
-
-                    # # Convert the remaining time to hours, minutes, and seconds
-                    # remaining_hours = int(remaining_time_total // 3600)
-                    # remaining_minutes = int((remaining_time_total % 3600) // 60)
-                    # remaining_seconds = int(remaining_time_total % 60)
-
-                    # print(f"ETA: {remaining_hours}h {remaining_minutes}m {remaining_seconds}s")
-
                 
                     #If the PPL is too high try to change the learning rate
                     for epoch in pbar:
@@ -141,43 +104,8 @@ if __name__ == "__main__":
                             losses_dev.append(np.asarray(loss_dev).mean())
                             ppl_values.append(ppl_dev) # add PPL to list
 
-                            # current_epoch += 1  # Incrementa il contatore delle epoche
-                            # elapsed_time = time.time() - start_time
-
-                            # # Calcola il tempo medio per epoca
-                            # avg_epoch_time = elapsed_time / current_epoch if current_epoch > 0 else 0
-
-                            # # Calcola il tempo rimanente per tutte le epoche
-                            # remaining_epochs = total_epochs - current_epoch
-                            # remaining_time_total = avg_epoch_time * remaining_epochs
-
-                            # # Converti il tempo rimanente in ore, minuti e secondi
-                            # remaining_hours = int(remaining_time_total // 3600)
-                            # remaining_minutes = int((remaining_time_total % 3600) // 60)
-                            # remaining_seconds = int(remaining_time_total % 60)
-
-                            # epoch_duration = time.time() - epoch_start_time
-                            current_epoch += 1  # Incrementa il contatore delle epoche
-                            elapsed_time = time.time() - config_start_time
-
-                            # Calcola il tempo medio per epoca
-                            avg_epoch_time = elapsed_time / current_epoch if current_epoch > 0 else 0
-
-                            # Calcola il tempo rimanente per tutte le epoche
-                            remaining_epochs = total_epochs - current_epoch
-                            remaining_time_total = avg_epoch_time * remaining_epochs
-
-                            # Converti il tempo rimanente in ore, minuti e secondi
-                            remaining_hours = int(remaining_time_total // 3600)
-                            remaining_minutes = int((remaining_time_total % 3600) // 60)
-                            remaining_seconds = int(remaining_time_total % 60)
-
-                            # Aggiorna la progress bar con il tempo stimato
-
-
-                            # Aggiorna la progress bar con il tempo stimato
                             pbar.set_description(
-                                f"Epoch: {epoch} PPL: {ppl_dev:.2f} ETA: {remaining_hours}h {remaining_minutes}m {remaining_seconds}s"
+                                f"Epoch: {epoch} PPL: {ppl_dev:.2f}"
                             )
 
                             if  ppl_dev < best_ppl: # the lower, the better
@@ -248,6 +176,20 @@ if __name__ == "__main__":
 
                     current_configuration += 1  # Incrementa il contatore delle configurazioni
                     print(f"Ending run #{current_configuration}/{total_configurations}")
+
+                    # Estimate remaining time
+                    elapsed_time = time.time() - script_start_time
+                    if current_configuration > 0:
+                        avg_time_per_config = elapsed_time / current_configuration
+                        remaining_configurations = total_configurations - current_configuration
+                        estimated_remaining_time = avg_time_per_config * remaining_configurations
+                        
+                        # Convert seconds to a more readable format (HH:MM:SS)
+                        hours, rem = divmod(estimated_remaining_time, 3600)
+                        minutes, seconds = divmod(rem, 60)
+                        print(f"Estimated time remaining: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}")
+                    else:
+                        print("Estimating remaining time after the first configuration...")
 
 
 
