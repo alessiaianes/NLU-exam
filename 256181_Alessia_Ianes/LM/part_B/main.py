@@ -197,25 +197,25 @@ if __name__ == "__main__":
 
 
 
-    pivot_table = pd.DataFrame(all_results).pivot_table(
-        values='Test PPL',
-        index='Batch Size',  # Rows: Batch Size
-        columns='Learning Rate'  # Columns: Learning Rate
-    )
+    # pivot_table = pd.DataFrame(all_results).pivot_table(
+    #     values='Test PPL',
+    #     index='Batch Size',  # Rows: Batch Size
+    #     columns='Learning Rate'  # Columns: Learning Rate
+    # )
 
-    # Visualize the results with a heatmap
-    plt.figure(figsize=(12, 8))
-    sns.heatmap(pivot_table, annot=True, fmt=".2f", cmap="coolwarm", cbar_kws={'label': 'Test PPL'})
-    plt.title("Heatmap of Final PPL for Different Configurations")
-    plt.xlabel("Learning Rate")
-    plt.ylabel("Batch Size")
-    plt.tight_layout()
+    # # Visualize the results with a heatmap
+    # plt.figure(figsize=(12, 8))
+    # sns.heatmap(pivot_table, annot=True, fmt=".2f", cmap="coolwarm", cbar_kws={'label': 'Test PPL'})
+    # plt.title("Heatmap of Final PPL for Different Configurations")
+    # plt.xlabel("Learning Rate")
+    # plt.ylabel("Batch Size")
+    # plt.tight_layout()
 
-    # Save the heatmap
-    heatmap_filename = 'results/LSTM_wt_vd/plots/heatmap_final_ppl.png'
-    plt.savefig(heatmap_filename)
-    plt.close()
-    print(f"Heatmap saved: '{heatmap_filename}'")
+    # # Save the heatmap
+    # heatmap_filename = 'results/LSTM_wt_vd/plots/heatmap_final_ppl.png'
+    # plt.savefig(heatmap_filename)
+    # plt.close()
+    # print(f"Heatmap saved: '{heatmap_filename}'")
 
 
     pd.DataFrame(all_results).to_csv('results/LSTM_wt_vd/all_results.csv', index=False)
