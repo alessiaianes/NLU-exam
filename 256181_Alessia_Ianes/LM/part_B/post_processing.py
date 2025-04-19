@@ -5,7 +5,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Directory contenente i file CSV
-results_dir = 'results/LSTM_weight_tying/'
+results_dir = 'results/LSTM_wt_vd/'
 
 # Funzione per estrarre i parametri dal nome del file
 def extract_params_from_filename(filename):
@@ -18,27 +18,45 @@ def extract_params_from_filename(filename):
     return lr, bs
 
 # Leggi tutti i file CSV nella directory
-csv_files = [f for f in os.listdir(results_dir) if f.endswith('.csv')]
+# Regex to match the expected filename pattern
+filename_pattern = re.compile(r'lr_([\d.]+)_bs_(\d+)')
+csv_files = [f for f in os.listdir(results_dir) if f.endswith('.csv') and filename_pattern.search(f)]
 
 # Estrai i dati da ogni file e aggiungi i parametri estratti
 all_results = []
 for csv_file in csv_files:
     file_path = os.path.join(results_dir, csv_file)
     
-    # Carica solo la colonna "Final PPL"
-    df = pd.read_csv(file_path, usecols=['Test PPL'])
-    
-    # Estrai Batch Size e Learning Rate dal nome del file
-    lr, bs = extract_params_from_filename(csv_file)
-    
-    # Aggiungi le colonne "Batch Size" e "Learning Rate" al DataFrame
-    df['Batch Size'] = bs
-    df['Learning Rate'] = lr
-    
-    all_results.append(df)
+    try:
+        # Estrai Batch Size e Learning Rate dal nome del file
+        lr, bs = extract_params_from_filename(csv_file)
+        
+        # Carica solo la colonna "Test PPL" e prendi il primo valore
+        # Assumiamo che tutti i valori in questa colonna siano uguali (il PPL finale del test)
+        df_ppl = pd.read_csv(file_path, usecols=['Test PPL'])
+        if df_ppl.empty:
+            print(f"Warning: Skipping empty file {csv_file}")
+            continue
+            
+        final_ppl = df_ppl['Test PPL'].iloc[0]
+        
+        # Aggiungi i risultati come dizionario alla lista
+        all_results.append({
+            'Batch Size': bs,
+            'Learning Rate': lr,
+            'Test PPL': final_ppl
+        })
+    except Exception as e:
+        print(f"Error processing file {csv_file}: {e}")
+        continue # Skip this file if there's an error
 
-# Combina tutti i DataFrame in uno solo
-results_df = pd.concat(all_results, ignore_index=True)
+# Crea il DataFrame finale direttamente dalla lista di dizionari
+results_df = pd.DataFrame(all_results)
+
+# Salva tutti i risultati aggregati (opzionale, ma utile)
+all_results_filename = os.path.join(results_dir, 'all_aggregated_results.csv')
+results_df.to_csv(all_results_filename, index=False)
+print(f'All aggregated results successfully saved in {all_results_filename}')
 
 # Assicurati che i dati abbiano le colonne necessarie
 required_columns = {'Batch Size', 'Learning Rate', 'Test PPL'}

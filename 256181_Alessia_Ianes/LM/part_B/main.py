@@ -40,10 +40,10 @@ if __name__ == "__main__":
     emb_size = 300 # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr_values = [2.5, 2.7, 3.2, 3.5, 4.0] # Learning rates to test
+    lr_values = [3.2, 3.5, 3.7, 4.0] # Learning rates to test
     batch_sizeT = [32, 64, 128]
-    emb_dout = [0.1]
-    out_dout = [0.4]
+    emb_dout = [0.1, 0.15]
+    out_dout = [0.35, 0.4]
 
     # Create a directory to save the results, if it doesn't exist
     os.makedirs('results/LSTM_wt_vd/plots', exist_ok=True)
