@@ -50,8 +50,7 @@ if __name__ == "__main__":
 
     all_results = []
     total_configurations = len(batch_sizeT) * len(lr_values) * len(emb_dout) * len(out_dout)  # Numero totale di configurazioni
-    trigger_patience = 3
-    use_asgd = False # If True, use ASGD optimizer
+    
     
 
 
@@ -63,6 +62,7 @@ if __name__ == "__main__":
             for ed in emb_dout:
                 for od in out_dout:
                     config_start_time = time.time()  # Tempo di inizio dell'esecuzione
+                    
                     print("*"*80)
                     print(f"Starting run #{current_configuration + 1}/{total_configurations}")
 
@@ -95,6 +95,8 @@ if __name__ == "__main__":
                     
                     ppl_values = []
                     trigger_counter = 0
+                    trigger_patience = 3
+                    use_asgd = False # If True, use ASGD optimizer
 
                 
                     #If the PPL is too high try to change the learning rate
