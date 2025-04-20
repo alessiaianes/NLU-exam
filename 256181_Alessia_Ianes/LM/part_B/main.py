@@ -40,16 +40,18 @@ if __name__ == "__main__":
     emb_size = 300 # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr_values = [3.2, 3.5, 3.7, 4.0] # Learning rates to test
-    batch_sizeT = [32, 64, 128]
-    emb_dout = [0.1, 0.15]
+    lr_values = [3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0] # Learning rates to test
+    batch_sizeT = [32, 64]
+    emb_dout = [0.15]
     out_dout = [0.35, 0.4]
 
     # Create a directory to save the results, if it doesn't exist
-    os.makedirs('results/LSTM_wt_vd/plots', exist_ok=True)
+    os.makedirs('results/LSTM_wt_vd_avsgd/plots', exist_ok=True)
 
     all_results = []
     total_configurations = len(batch_sizeT) * len(lr_values) * len(emb_dout) * len(out_dout)  # Numero totale di configurazioni
+    trigger_patience = 3
+    use_asgd = False # If True, use ASGD optimizer
     
 
 
@@ -92,6 +94,7 @@ if __name__ == "__main__":
                     pbar = tqdm(range(1,n_epochs))
                     
                     ppl_values = []
+                    trigger_counter = 0
 
                 
                     #If the PPL is too high try to change the learning rate
@@ -113,8 +116,17 @@ if __name__ == "__main__":
                                 best_ppl = ppl_dev
                                 best_model = copy.deepcopy(model).to('cpu')
                                 patience = 3
+                                trigger_counter = 0
                             else:
                                 patience -= 1
+                                trigger_counter += 1
+
+                        # Trigger ASGD if patience is exceeded
+                        if trigger_counter >= trigger_patience and not use_asgd:
+                            print(f"Triggering ASGD at epoch {epoch}")
+                            optimizer = optim.ASGD(model.parameters(), lr=lr)
+                            patience = 3  # Reset patience
+                            use_asgd = True
                             
                         if patience <= 0: # Early stopping triggered at epoch {epoch} for lr={lr}, bs={bs}, emb_dout={ed}, out_dout={od}")
                             break # Not nice but it keeps the code clean
@@ -125,6 +137,8 @@ if __name__ == "__main__":
                     all_results.append({
                         'Batch Size': bs,
                         'Learning Rate': lr,
+                        'Embedding Dropout': ed,
+                        'Output Dropout': od,
                         'Test PPL': final_ppl
                     })    
                     print(f'Test ppl for batch size {bs}, learning rate {lr}, embedding dropout {ed}, output dropout {od}: {round(final_ppl, 2)}')
@@ -136,7 +150,7 @@ if __name__ == "__main__":
                         'PPL': ppl_values,
                         'Test PPL': [final_ppl] * len(sampled_epochs)
                     })
-                    csv_filename = f'results/LSTM_wt_vd/LSTM_ppl_results_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.csv'
+                    csv_filename = f'results/LSTM_wt_vd_avsgd/LSTM_ppl_results_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.csv'
                     results_df.to_csv(csv_filename, index=False)
                     print(f'CSV file successfully saved in {csv_filename}')
                     
@@ -153,7 +167,7 @@ if __name__ == "__main__":
                     ax1.grid()
 
                     # Save ppl_dev plot
-                    ppl_plot_filename = f'results/LSTM_wt_vd/plots/LSTM_ppl_plot_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.png'
+                    ppl_plot_filename = f'results/LSTM_wt_vd_avsgd/plots/LSTM_ppl_plot_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.png'
                     plt.savefig(ppl_plot_filename)
                     plt.close(fig)
                     print(f"PPL plot saved: '{ppl_plot_filename}'")
@@ -171,7 +185,7 @@ if __name__ == "__main__":
                     ax2.grid()
 
                     # Save loss plot
-                    loss_plot_filename = f'results/LSTM_wt_vd/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.png'
+                    loss_plot_filename = f'results/LSTM_wt_vd_avsgd/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.png'
                     plt.savefig(loss_plot_filename)
                     plt.close(fig)
 
@@ -218,15 +232,15 @@ if __name__ == "__main__":
     # print(f"Heatmap saved: '{heatmap_filename}'")
 
 
-    pd.DataFrame(all_results).to_csv('results/LSTM_wt_vd/all_results.csv', index=False)
-    print(f'All results successfully saved in results/LSTM_wt_vd/all_results.csv')
+    pd.DataFrame(all_results).to_csv('results/LSTM_wt_vd_avsgd/all_results.csv', index=False)
+    print(f'All results successfully saved in results/LSTM_wt_vd_avsgd/all_results.csv')
 
     # After the loops, find the best configuration:
     best_result = min(all_results, key=lambda x: x['Test PPL'])
     print(f"Best configuration: {best_result}")
     best_result_df = pd.DataFrame([best_result])
-    best_result_df.to_csv('results/LSTM_wt_vd/best_configuration.csv', index=False)
-    print(f'Best configuration successfully saved in results/LSTM_wt_vd/best_configuration.csv')
+    best_result_df.to_csv('results/LSTM_wt_vd_avsgd/best_configuration.csv', index=False)
+    print(f'Best configuration successfully saved in results/LSTM_wt_vd_avsgd/best_configuration.csv')
 
 
     
