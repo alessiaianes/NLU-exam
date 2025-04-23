@@ -1,2 +1,2 @@
 Batch Size,Learning Rate,Embedding Dropout,Output Dropout,Test PPL
-32,4.0,0.15,0.4,95.54420912876122
+32,3.5,0.15,0.4,95.4780780521338

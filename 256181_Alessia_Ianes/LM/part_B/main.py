@@ -86,7 +86,7 @@ if __name__ == "__main__":
                     x_min, x_max = 0, n_epochs  # Limiti per l'asse x (epoche)
                     ppl_min, ppl_max = 0, 500  # Limiti per l'asse y (PPL)
                     loss_min, loss_max = 0, 10  # Limiti per l'asse y (Loss)
-                    patience = 3
+                    patience = 7
                     losses_train = []
                     losses_dev = []
                     sampled_epochs = []
@@ -97,6 +97,7 @@ if __name__ == "__main__":
                     ppl_values = []
                     asgd_trigger_counter = 0
                     use_asgd = False # If True, use ASGD optimizer
+                    trigger = 0
 
                 
                     #If the PPL is too high try to change the learning rate
@@ -117,7 +118,7 @@ if __name__ == "__main__":
                             if  ppl_dev < best_ppl: # the lower, the better
                                 best_ppl = ppl_dev
                                 best_model = copy.deepcopy(model).to('cpu')
-                                patience = 3 if not use_asgd else asgd_patience_reset
+                                patience = 7 if not use_asgd else asgd_patience_reset
                                 asgd_trigger_counter = 0
                             else:
                                 patience -= 1
@@ -128,9 +129,9 @@ if __name__ == "__main__":
 
                         # --- NT-AvSGD Trigger Logic ---
                             if not use_asgd:
-                                if len(ppl_values) >= non_monotonic_trigger_window:
+                                if len(ppl_values) > non_monotonic_trigger_window:
                                     # Get the minimum PPL from the period *before* the current window
-                                    min_ppl_before_window = min(ppl_dev[:-non_monotonic_trigger_window])
+                                    min_ppl_before_window = min(ppl_values[:-non_monotonic_trigger_window])
                                     
                                     # Check if current PPL is worse than the minimum before the window
                                     if ppl_dev > min_ppl_before_window:
