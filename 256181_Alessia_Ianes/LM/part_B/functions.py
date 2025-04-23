@@ -3,6 +3,7 @@
 import math
 import torch.nn as nn
 import torch
+import copy
 def train_loop(data, optimizer, criterion, model, clip=5):
     model.train()
     loss_array = []
@@ -57,3 +58,6 @@ def init_weights(mat):
                 torch.nn.init.uniform_(m.weight, -0.01, 0.01)
                 if m.bias != None:
                     m.bias.data.fill_(0.01)
+
+
+

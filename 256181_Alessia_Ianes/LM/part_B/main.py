@@ -51,9 +51,10 @@ if __name__ == "__main__":
     all_results = []
     total_configurations = len(batch_sizeT) * len(lr_values) * len(emb_dout) * len(out_dout)  # Numero totale di configurazioni
     
-    
-
-
+    # NT-AvSGD parameters
+    non_monotonic_trigger_window = 5 # 'n' in the paper's algorithm
+    asgd_trigger_patience = non_monotonic_trigger_window # How many epochs to wait after condition met
+    asgd_patience_reset = 7 # Patience reset value when ASGD is triggered
 
     # Train with differen batch size, emb size, hid size and learning rate
     current_configuration = 0 # Initialize configuration counter
@@ -94,8 +95,7 @@ if __name__ == "__main__":
                     pbar = tqdm(range(1,n_epochs))
                     
                     ppl_values = []
-                    trigger_counter = 0
-                    trigger_patience = 3
+                    asgd_trigger_counter = 0
                     use_asgd = False # If True, use ASGD optimizer
 
                 
@@ -117,21 +117,37 @@ if __name__ == "__main__":
                             if  ppl_dev < best_ppl: # the lower, the better
                                 best_ppl = ppl_dev
                                 best_model = copy.deepcopy(model).to('cpu')
-                                patience = 3
-                                trigger_counter = 0
+                                patience = 3 if not use_asgd else asgd_patience_reset
+                                asgd_trigger_counter = 0
                             else:
                                 patience -= 1
-                                trigger_counter += 1
-
+                                if patience <= 0:
+                                    break
                         # Trigger ASGD if patience is exceeded
-                        if trigger_counter >= trigger_patience and not use_asgd:
-                            print(f"Triggering ASGD at epoch {epoch}")
-                            optimizer = optim.ASGD(model.parameters(), lr=lr)
-                            patience = 3  # Reset patience
-                            use_asgd = True
-                            
-                        if patience <= 0: # Early stopping triggered at epoch {epoch} for lr={lr}, bs={bs}, emb_dout={ed}, out_dout={od}")
-                            break # Not nice but it keeps the code clean
+
+
+                        # --- NT-AvSGD Trigger Logic ---
+                            if not use_asgd:
+                                if len(ppl_values) >= non_monotonic_trigger_window:
+                                    # Get the minimum PPL from the period *before* the current window
+                                    min_ppl_before_window = min(ppl_dev[:-non_monotonic_trigger_window])
+                                    
+                                    # Check if current PPL is worse than the minimum before the window
+                                    if ppl_dev > min_ppl_before_window:
+                                        asgd_trigger_counter += 1
+                                    else:
+                                        asgd_trigger_counter = 0 # Reset if PPL improved relative to that minimum
+
+                                    # Trigger ASGD if counter reaches patience
+                                    if asgd_trigger_counter >= asgd_trigger_patience:
+                                        print(f"Triggering ASGD at epoch {epoch}")
+                                        trigger = epoch
+                                        use_asgd = True
+                                        optimizer = optim.ASGD(model.parameters(), lr=lr, weight_decay=0, t0=0, lambd=0)
+                                        patience = asgd_patience_reset  # Reset patience
+                                    
+
+                        
 
                     best_model.to(DEVICE)
                     final_ppl,  _ = eval_loop(test_loader, criterion_eval, best_model)
@@ -160,6 +176,8 @@ if __name__ == "__main__":
                     # Create ppl_dev plot
                     fig, ax1 = plt.subplots(figsize=(10, 5))
                     ax1.plot(sampled_epochs, ppl_values, label='PPL Dev', color='red')
+                    ax1.axvline(x=trigger, color='green', linestyle='--', linewidth=2, \
+                                label=f'ASGD Trigger @ Ep {trigger}')
                     ax1.set_title(f'PPL Dev for lr={lr}, bs={bs}, ed={ed}, od={od}')
                     ax1.set_xlabel('Epoch')
                     ax1.set_ylabel('PPL')
@@ -178,6 +196,8 @@ if __name__ == "__main__":
                     fig, ax2 = plt.subplots(figsize=(10, 5))
                     ax2.plot(sampled_epochs, losses_train, label='Train Loss', color='orange')
                     ax2.plot(sampled_epochs, losses_dev, label='Dev Loss', color='blue')
+                    ax2.axvline(x=trigger, color='green', linestyle='--', linewidth=2, \
+                                label=f'ASGD Trigger @ Ep {trigger}')
                     ax2.set_title(f'Train and Dev Loss for lr={lr}, bs={bs}, ed={ed}, od={od}')
                     ax2.set_xlabel('Epoch')
                     ax2.set_ylabel('Loss')
