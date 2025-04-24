@@ -60,4 +60,11 @@ def init_weights(mat):
                     m.bias.data.fill_(0.01)
 
 
-
+# Helper function to update the averaged model state dictionary
+def update_avg_model(avg_model_sd, current_model_sd, num_averaged_steps):
+    """ Updates the running average of the model's state dictionary. """
+    for key in avg_model_sd:
+        # Ensure both tensors are on the same device (CPU in this case) before averaging
+        avg_model_sd[key] = avg_model_sd[key] * (num_averaged_steps - 1.0) / num_averaged_steps + \
+                            current_model_sd[key].cpu() / num_averaged_steps
+    return avg_model_sd

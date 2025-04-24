@@ -53,8 +53,8 @@ if __name__ == "__main__":
     
     # NT-AvSGD parameters
     non_monotonic_trigger_window = 5 # 'n' in the paper's algorithm
-    asgd_trigger_patience = non_monotonic_trigger_window # How many epochs to wait after condition met
-    asgd_patience_reset = 7 # Patience reset value when ASGD is triggered
+    # asgd_trigger_patience = non_monotonic_trigger_window # How many epochs to wait after condition met
+    # asgd_patience_reset = 7 # Patience reset value when ASGD is triggered
 
     # Train with differen batch size, emb size, hid size and learning rate
     current_configuration = 0 # Initialize configuration counter
@@ -86,7 +86,7 @@ if __name__ == "__main__":
                     x_min, x_max = 0, n_epochs  # Limiti per l'asse x (epoche)
                     ppl_min, ppl_max = 0, 500  # Limiti per l'asse y (PPL)
                     loss_min, loss_max = 0, 10  # Limiti per l'asse y (Loss)
-                    patience = 3
+                    patience = 7
                     losses_train = []
                     losses_dev = []
                     sampled_epochs = []
@@ -95,8 +95,10 @@ if __name__ == "__main__":
                     pbar = tqdm(range(1,n_epochs))
                     
                     ppl_values = []
-                    asgd_trigger_counter = 0
-                    use_asgd = False # If True, use ASGD optimizer
+                    avg_model_sd = None # State dict for the averaged model
+                    trigger = 0 # Averaging trigger epoch
+                    t = 0 # Validation check counter
+                    num_avg_steps = 0
 
                 
                     #If the PPL is too high try to change the learning rate
@@ -117,39 +119,54 @@ if __name__ == "__main__":
                             if  ppl_dev < best_ppl: # the lower, the better
                                 best_ppl = ppl_dev
                                 best_model = copy.deepcopy(model).to('cpu')
-                                patience = 3 if not use_asgd else asgd_patience_reset
-                                asgd_trigger_counter = 0
+                                patience = 7
+                                # asgd_trigger_counter = 0
                             else:
                                 patience -= 1
-                                if patience <= 0:
-                                    break
-                        # Trigger ASGD if patience is exceeded
+
+                            if patience <= 0:
+                                break
+
+                            if trigger == 0 and t >= non_monotonic_trigger_window:
+                                start_idx = t - non_monotonic_trigger_window
+                                min_ppl = min(ppl_values[start_idx:t])
+
+                                if ppl_dev > min_ppl:
+                                    print(f"Triggering ASGD at epoch {epoch}")
+                                    trigger = epoch
+                            
+                            t += 1
+
+                        if trigger > 0 and epoch > trigger:
+                            num_avg_steps += 1
+                            current_sd = model.state_dict()
+                            if avg_model_sd is None:
+                                print(f"Starting averaging with model from epoch {epoch}")
+                                # Initialize avg_model_sd on CPU
+                                avg_model_sd = {k: v.cpu().clone() for k, v in current_sd.items()}
+                            else:
+                                 # Update running average (current_sd needs to be moved to CPU within the function)
+                                avg_model_sd = update_avg_model(avg_model_sd, current_sd, num_avg_steps)
 
 
-                        # --- NT-AvSGD Trigger Logic ---
-                            if not use_asgd:
-                                if len(ppl_values) >= non_monotonic_trigger_window:
-                                    # Get the minimum PPL from the period *before* the current window
-                                    min_ppl_before_window = min(ppl_dev[:-non_monotonic_trigger_window])
-                                    
-                                    # Check if current PPL is worse than the minimum before the window
-                                    if ppl_dev > min_ppl_before_window:
-                                        asgd_trigger_counter += 1
-                                    else:
-                                        asgd_trigger_counter = 0 # Reset if PPL improved relative to that minimum
 
-                                    # Trigger ASGD if counter reaches patience
-                                    if asgd_trigger_counter >= asgd_trigger_patience:
-                                        print(f"Triggering ASGD at epoch {epoch}")
-                                        trigger = epoch
-                                        use_asgd = True
-                                        optimizer = optim.ASGD(model.parameters(), lr=lr, weight_decay=0, t0=0, lambd=0)
-                                        patience = asgd_patience_reset  # Reset patience
-                                    
-
+                    if avg_model_sd is not None:
+                        print("\nUsing averaged model for final evaluation.")
+                        # Create a new model instance and load the averaged weights
+                        final_model = LM_LSTM_wt_vd(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"], n_layers=1, emb_dropout=ed, out_dropout=od)
+                        final_model.load_state_dict(avg_model_sd) # Load CPU state dict
+                        final_model = final_model.to(DEVICE) # Move to evaluation device
+                    elif best_model is not None:
+                        final_model = LM_LSTM_wt_vd(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"], n_layers=1, emb_dropout=ed, out_dropout=od)
+                        final_model.load_state_dict(best_model) # Load CPU state dict
+                        final_model = final_model.to(DEVICE) # Move to evaluation device
+                    else:
+                        print("\nAveraging never triggered. Using last model state for final evaluation.")
+                        # The current 'model' is the final model (already on DEVICE)
+                        final_model = model
                         
 
-                    best_model.to(DEVICE)
+                    # best_model.to(DEVICE)
                     final_ppl,  _ = eval_loop(test_loader, criterion_eval, best_model)
                     # Inside the loop, append results:
                     all_results.append({
