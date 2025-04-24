@@ -13,6 +13,7 @@ import copy
 import pandas as pd  # for DataFrame
 import os
 import math
+import seaborn as sns
 
 if __name__ == "__main__":
     DEVICE = 'cuda:0' # it can be changed with 'cpu' if you do not have a gpu
@@ -108,7 +109,7 @@ if __name__ == "__main__":
                         'Embedding Size': emb,
                         'Hidden Size': hid,
                         'Learning Rate': lr,
-                        'Final PPL': final_ppl
+                        'Test PPL': final_ppl
                     })    
                     print(f'Test ppl for batch size {bs}, emb size {emb},\
                           hid size {hid}, learning rate {lr}: {final_ppl}')
@@ -159,8 +160,33 @@ if __name__ == "__main__":
                     plt.savefig(loss_plot_filename)
                     plt.close(fig)
 
+    pivot_table = pd.DataFrame(all_results).pivot_table(
+        values='Test PPL',
+        index='Batch Size',  # Rows: Batch Size
+        columns='Learning Rate'  # Columns: Learning Rate
+    )
+
+    # Visualize the results with a heatmap
+    plt.figure(figsize=(12, 8))
+    sns.heatmap(pivot_table, annot=True, fmt=".2f", cmap="coolwarm", cbar_kws={'label': 'Test PPL'})
+    plt.title("Heatmap of Final PPL for Different Configurations")
+    plt.xlabel("Learning Rate")
+    plt.ylabel("Batch Size")
+    plt.tight_layout()
+
+    # Save the heatmap
+    heatmap_filename = 'results/LSTM_wt_vd/plots/heatmap_final_ppl.png'
+    plt.savefig(heatmap_filename)
+    plt.close()
+    print(f"Heatmap saved: '{heatmap_filename}'")
+
+
+    pd.DataFrame(all_results).to_csv('results/LSTM_wt_vd_avsgd/all_results.csv', index=False)
+    print(f'All results successfully saved in results/LSTM_wt_vd_avsgd/all_results.csv')
+
+
     # After the loops, find the best configuration:
-    best_result = min(all_results, key=lambda x: x['Final PPL'])
+    best_result = min(all_results, key=lambda x: x['Test PPL'])
     print(f"Best configuration: {best_result}")
     best_result_df = pd.DataFrame([best_result])
     best_result_df.to_csv('results/LSTM/best_configuration.csv', index=False)
