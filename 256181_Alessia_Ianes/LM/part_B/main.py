@@ -95,16 +95,10 @@ if __name__ == "__main__":
                     pbar = tqdm(range(1,n_epochs))
                     
                     ppl_values = []
-<<<<<<< HEAD
                     avg_model_sd = None # State dict for the averaged model
                     trigger = 0 # Averaging trigger epoch
                     t = 0 # Validation check counter
                     num_avg_steps = 0
-=======
-                    asgd_trigger_counter = 0
-                    use_asgd = False # If True, use ASGD optimizer
-                    trigger = 0
->>>>>>> 65e75475f5032f6b0bcb1a4468802f8f3c9f253d
 
                 
                     #If the PPL is too high try to change the learning rate
@@ -125,13 +119,8 @@ if __name__ == "__main__":
                             if  ppl_dev < best_ppl: # the lower, the better
                                 best_ppl = ppl_dev
                                 best_model = copy.deepcopy(model).to('cpu')
-<<<<<<< HEAD
                                 patience = 7
                                 # asgd_trigger_counter = 0
-=======
-                                patience = 7 if not use_asgd else asgd_patience_reset
-                                asgd_trigger_counter = 0
->>>>>>> 65e75475f5032f6b0bcb1a4468802f8f3c9f253d
                             else:
                                 patience -= 1
 
@@ -160,29 +149,6 @@ if __name__ == "__main__":
                                 avg_model_sd = update_avg_model(avg_model_sd, current_sd, num_avg_steps)
 
 
-<<<<<<< HEAD
-=======
-                        # --- NT-AvSGD Trigger Logic ---
-                            if not use_asgd:
-                                if len(ppl_values) > non_monotonic_trigger_window:
-                                    # Get the minimum PPL from the period *before* the current window
-                                    min_ppl_before_window = min(ppl_values[:-non_monotonic_trigger_window])
-                                    
-                                    # Check if current PPL is worse than the minimum before the window
-                                    if ppl_dev > min_ppl_before_window:
-                                        asgd_trigger_counter += 1
-                                    else:
-                                        asgd_trigger_counter = 0 # Reset if PPL improved relative to that minimum
-
-                                    # Trigger ASGD if counter reaches patience
-                                    if asgd_trigger_counter >= asgd_trigger_patience:
-                                        print(f"Triggering ASGD at epoch {epoch}")
-                                        trigger = epoch
-                                        use_asgd = True
-                                        optimizer = optim.ASGD(model.parameters(), lr=lr, weight_decay=0, t0=0, lambd=0)
-                                        patience = asgd_patience_reset  # Reset patience
-                                    
->>>>>>> 65e75475f5032f6b0bcb1a4468802f8f3c9f253d
 
                     if avg_model_sd is not None:
                         print("\nUsing averaged model for final evaluation.")
@@ -201,7 +167,7 @@ if __name__ == "__main__":
                         
 
                     # best_model.to(DEVICE)
-                    final_ppl,  _ = eval_loop(test_loader, criterion_eval, best_model)
+                    final_ppl,  _ = eval_loop(test_loader, criterion_eval, final_model)
                     # Inside the loop, append results:
                     all_results.append({
                         'Batch Size': bs,
