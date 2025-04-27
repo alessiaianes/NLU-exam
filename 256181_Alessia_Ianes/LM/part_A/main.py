@@ -37,11 +37,13 @@ if __name__ == "__main__":
     emb_size = [300] # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr_values = [2, 2.5, 3, 3.5, 3.7, 4] # Learning rates to test
+    #lr_values = [0.01, 0.1, 1, 1.2, 1.5] # Learning rates to test with SGD
+    lr_values = [0.0001, 0.0005, 0.001, 0.005, 0.01] # Learning rates to test with AdamW
     batch_sizeT = [32, 64, 128]
+    total_conf = len(batch_sizeT) * len(emb_size) * len(hid_size) * len(lr_values)
 
     # Create a directory to save the results, if it doesn't exist
-    os.makedirs('results/LSTM/plots', exist_ok=True)
+    os.makedirs('results/LSTM_dropout_ADAM/plots', exist_ok=True)
 
     all_results = []
     # Train with differen batch size, emb size, hid size and learning rate
@@ -49,6 +51,9 @@ if __name__ == "__main__":
         for emb in emb_size:
             for hid in hid_size:
                 for lr in lr_values:
+                    current_conf = 0
+                    print(f"Start run #{current_conf + 1}/{total_conf}")
+                    print("*"*80)
 
                     print(f"Training with batch size: {bs} emb size: {emb} hid size: {hid} and lr {lr}")
                     # Define the collate function
@@ -57,10 +62,13 @@ if __name__ == "__main__":
                     test_loader = DataLoader(test_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
                     
                     # Initialize the model
-                    model = LM_LSTM(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+                    model = LM_LSTM_dropout(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+                    # model = LM_LSTM(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+                    # model = LM_RNN(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
                     model.apply(init_weights)
 
-                    optimizer = optim.SGD(model.parameters(), lr=lr)
+                    optimizer = optim.AdamW(model.parameters(), lr=lr)
+                    # optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
                     criterion_train = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"])
                     criterion_eval = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"], reduction='sum')
     
@@ -121,7 +129,7 @@ if __name__ == "__main__":
                         'PPL': ppl_values,
                         'Test PPL': [final_ppl] * len(sampled_epochs)
                     })
-                    csv_filename = f'results/LSTM/LSTM_ppl_results_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.csv'
+                    csv_filename = f'results/LSTM_dropout_ADAM/LSTM_ppl_results_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.csv'
                     results_df.to_csv(csv_filename, index=False)
                     print(f'CSV file successfully saved in {csv_filename}')
                     
@@ -138,7 +146,7 @@ if __name__ == "__main__":
                     ax1.grid()
 
                     # Save ppl_dev plot
-                    ppl_plot_filename = f'results/LSTM/plots/LSTM_ppl_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
+                    ppl_plot_filename = f'results/LSTM_dropout_ADAM/plots/LSTM_ppl_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
                     plt.savefig(ppl_plot_filename)
                     plt.close(fig)
                     print(f"PPL plot saved: '{ppl_plot_filename}'")
@@ -156,9 +164,13 @@ if __name__ == "__main__":
                     ax2.grid()
 
                     # Save loss plot
-                    loss_plot_filename = f'results/LSTM/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
+                    loss_plot_filename = f'results/LSTM_dropout_ADAM/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
                     plt.savefig(loss_plot_filename)
                     plt.close(fig)
+
+                print(f"End run #{current_conf + 1}/{total_conf}")
+                print("*"*80)
+                current_conf += 1
 
     pivot_table = pd.DataFrame(all_results).pivot_table(
         values='Test PPL',
@@ -175,22 +187,22 @@ if __name__ == "__main__":
     plt.tight_layout()
 
     # Save the heatmap
-    heatmap_filename = 'results/LSTM_wt_vd/plots/heatmap_final_ppl.png'
+    heatmap_filename = 'results/LSTM_dropout_ADAM/plots/heatmap_final_ppl.png'
     plt.savefig(heatmap_filename)
     plt.close()
     print(f"Heatmap saved: '{heatmap_filename}'")
 
 
-    pd.DataFrame(all_results).to_csv('results/LSTM_wt_vd_avsgd/all_results.csv', index=False)
-    print(f'All results successfully saved in results/LSTM_wt_vd_avsgd/all_results.csv')
+    pd.DataFrame(all_results).to_csv('results/LSTM_dropout_ADAM/all_results.csv', index=False)
+    print(f'All results successfully saved in results/LSTM_dropout_ADAM/all_results.csv')
 
 
     # After the loops, find the best configuration:
     best_result = min(all_results, key=lambda x: x['Test PPL'])
     print(f"Best configuration: {best_result}")
     best_result_df = pd.DataFrame([best_result])
-    best_result_df.to_csv('results/LSTM/best_configuration.csv', index=False)
-    print(f'Best configuration successfully saved in results/LSTM/best_configuration.csv')
+    best_result_df.to_csv('results/LSTM_dropout_ADAM/best_configuration.csv', index=False)
+    print(f'Best configuration successfully saved in results/LSTM_dropout_ADAM/best_configuration.csv')
 
 
     
