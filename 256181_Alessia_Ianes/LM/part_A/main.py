@@ -168,9 +168,9 @@ if __name__ == "__main__":
                     plt.savefig(loss_plot_filename)
                     plt.close(fig)
 
-                print(f"End run #{current_conf + 1}/{total_conf}")
-                print("*"*80)
-                current_conf += 1
+                    print(f"End run #{current_conf + 1}/{total_conf}")
+                    print("*"*80)
+                    current_conf += 1
 
     pivot_table = pd.DataFrame(all_results).pivot_table(
         values='Test PPL',
