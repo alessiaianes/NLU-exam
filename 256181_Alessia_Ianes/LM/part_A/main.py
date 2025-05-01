@@ -33,8 +33,8 @@ if __name__ == "__main__":
 
     # Experiment also with a smaller or bigger model by changing hid and emb sizes 
     # A large model tends to overfit
-    hid = [200] # Hidden size to test
-    emb = [300] # Embedding size to test
+    hid = 200 # Hidden size to test
+    emb = 300 # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
     lr = 0.1 # Learning rates to test with SGD
@@ -43,7 +43,7 @@ if __name__ == "__main__":
 
     # Create a directory to save the results, if it doesn't exist
     os.makedirs('results/LSTM_dropout_ADAM/plots', exist_ok=True)
-    os.makedirs('bin/LM_RNN', exists_ok=True)
+    os.makedirs('bin/LM_RNN', exist_ok=True)
 
     print(f"Training with batch size: {bs} emb size: {emb} hid size: {hid} and lr {lr}")
     # Define the collate function
