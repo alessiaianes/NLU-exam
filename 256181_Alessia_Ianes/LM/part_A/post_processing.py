@@ -5,7 +5,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 # Directory contenente i file CSV
-results_dir = 'results/LSTM/'
+results_dir = 'results/LSTM_dropout/'
 
 # Funzione per estrarre i parametri dal nome del file
 def extract_params_from_filename(filename):
@@ -89,8 +89,8 @@ plt.close()
 print(f"Heatmap saved: '{heatmap_filename}'")
 
 # Troviamo la migliore configurazione
-pd.DataFrame(all_results).to_csv('results/LSTM/all_results.csv', index=False)
-print(f'All results successfully saved in results/LSTM/all_results.csv')
+pd.DataFrame(all_results).to_csv('results/LSTM_dropout/all_results.csv', index=False)
+print(f'All results successfully saved in results/LSTM_dropout/all_results.csv')
 
 best_result = min(all_results, key=lambda x: x['Test PPL'])
 print(f"Best configuration: {best_result}")
