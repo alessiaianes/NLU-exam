@@ -37,13 +37,13 @@ if __name__ == "__main__":
     emb = 300 # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr = 1 # Learning rates to test with SGD
+    lr = 0.1 # Learning rates to test with SGD
     #lr_values = [0.0001, 0.0005, 0.001, 0.005, 0.01] # Learning rates to test with AdamW
-    bs = 128
+    bs = 32
 
     # Create a directory to save the results, if it doesn't exist
-    os.makedirs('results/LSTM/plots', exist_ok=True)
-    os.makedirs('bin/LSTM', exist_ok=True)
+    os.makedirs('results/LSTM_dropout/plots', exist_ok=True)
+    os.makedirs('bin/LSTM_dropout', exist_ok=True)
 
     print(f"Training with batch size: {bs} emb size: {emb} hid size: {hid} and lr {lr}")
     # Define the collate function
@@ -52,8 +52,8 @@ if __name__ == "__main__":
     test_loader = DataLoader(test_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
     
     # Initialize the model
-    # model = LM_LSTM_dropout(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
-    model = LM_LSTM(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+    model = LM_LSTM_dropout(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+    # model = LM_LSTM(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
     # model = LM_RNN(emb, hid, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
     model.apply(init_weights)
 
@@ -109,7 +109,7 @@ if __name__ == "__main__":
         'PPL': ppl_values,
         'Test PPL': [final_ppl] * len(sampled_epochs)
     })
-    csv_filename = f'results/LSTM/LSTM_ppl_results_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.csv'
+    csv_filename = f'results/LSTM_dropout/LSTM_ppl_results_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.csv'
     results_df.to_csv(csv_filename, index=False)
     print(f'CSV file successfully saved in {csv_filename}')
     
@@ -126,7 +126,7 @@ if __name__ == "__main__":
     ax1.grid()
 
     # Save ppl_dev plot
-    ppl_plot_filename = f'results/LSTM/plots/LSTM_ppl_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
+    ppl_plot_filename = f'results/LSTM_dropout/plots/LSTM_ppl_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
     plt.savefig(ppl_plot_filename)
     plt.close(fig)
     print(f"PPL plot saved: '{ppl_plot_filename}'")
@@ -144,12 +144,12 @@ if __name__ == "__main__":
     ax2.grid()
 
     # Save loss plot
-    loss_plot_filename = f'results/LSTM/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
+    loss_plot_filename = f'results/LSTM_dropout/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}_emb_{emb}_hid_{hid}.png'
     plt.savefig(loss_plot_filename)
     plt.close(fig)
 
     # To save the model
-    path = 'bin/LSTM/LSTM_model.pt'
+    path = 'bin/LSTM_dropout/LSTM_dropout_model.pt'
     torch.save(model.state_dict(), path)
     # To load the model you need to initialize it
     # model = LM_RNN(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"]).to(device)
