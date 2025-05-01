@@ -18,7 +18,6 @@ import time
 
 
 if __name__ == "__main__":
-    script_start_time = time.time() # Record start time of the script
     DEVICE = 'cuda:0' # it can be changed with 'cpu' if you do not have a gpu
     train_raw = read_file("dataset/PennTreeBank/ptb.train.txt")
     dev_raw = read_file("dataset/PennTreeBank/ptb.valid.txt")
@@ -40,252 +39,126 @@ if __name__ == "__main__":
     emb_size = 300 # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr_values = [3.4, 3.5, 3.6, 3.7, 3.8, 3.9, 4.0] # Learning rates to test
-    batch_sizeT = [32, 64]
-    emb_dout = [0.15]
-    out_dout = [0.35, 0.4]
+    lr = 3 # Learning rates to test
+    bs= 32
 
     # Create a directory to save the results, if it doesn't exist
-    os.makedirs('results/LSTM_wt_vd_avsgd/plots', exist_ok=True)
+    os.makedirs('results/LSTM_weight_tying/plots', exist_ok=True)
+    os.makedirs('bin/LSTM_weight_tying', exist_ok=True)
 
-    all_results = []
-    total_configurations = len(batch_sizeT) * len(lr_values) * len(emb_dout) * len(out_dout)  # Numero totale di configurazioni
+
+    # Define the collate function
+    train_loader = DataLoader(train_dataset, batch_size=bs, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE),  shuffle=True)
+    dev_loader = DataLoader(dev_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
+    test_loader = DataLoader(test_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
     
-    # NT-AvSGD parameters
-    non_monotonic_trigger_window = 5 # 'n' in the paper's algorithm
-    # asgd_trigger_patience = non_monotonic_trigger_window # How many epochs to wait after condition met
-    # asgd_patience_reset = 7 # Patience reset value when ASGD is triggered
+    # Initialize the model
+    model = LM_LSTM_weight_tying(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+    model.apply(init_weights)
 
-    # Train with differen batch size, emb size, hid size and learning rate
-    current_configuration = 0 # Initialize configuration counter
-    for bs in batch_sizeT:
-        for lr in lr_values:
-            for ed in emb_dout:
-                for od in out_dout:
-                    config_start_time = time.time()  # Tempo di inizio dell'esecuzione
-                    
-                    print("*"*80)
-                    print(f"Starting run #{current_configuration + 1}/{total_configurations}")
-
-                    print(f"Training with batch size: {bs}, lr {lr}, emb_dropout {ed}, out_dropout {od}")
-                    # Define the collate function
-                    train_loader = DataLoader(train_dataset, batch_size=bs, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE),  shuffle=True)
-                    dev_loader = DataLoader(dev_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
-                    test_loader = DataLoader(test_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
-                    
-                    # Initialize the model
-                    model = LM_LSTM_wt_vd(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"], n_layers=1, emb_dropout=ed, out_dropout=od).to(DEVICE)
-                    model.apply(init_weights)
-
-                    optimizer = optim.SGD(model.parameters(), lr=lr)
-                    criterion_train = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"])
-                    criterion_eval = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"], reduction='sum')
+    optimizer = optim.SGD(model.parameters(), lr=lr)
+    criterion_train = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"])
+    criterion_eval = nn.CrossEntropyLoss(ignore_index=lang.word2id["<pad>"], reduction='sum')
 
 
-                    n_epochs = 100
-                    x_min, x_max = 0, n_epochs  # Limiti per l'asse x (epoche)
-                    ppl_min, ppl_max = 0, 500  # Limiti per l'asse y (PPL)
-                    loss_min, loss_max = 0, 10  # Limiti per l'asse y (Loss)
-                    patience = 7
-                    losses_train = []
-                    losses_dev = []
-                    sampled_epochs = []
-                    best_ppl = math.inf
-                    best_model = None
-                    pbar = tqdm(range(1,n_epochs))
-                    
-                    ppl_values = []
-                    avg_model_sd = None # State dict for the averaged model
-                    trigger = 0 # Averaging trigger epoch
-                    t = 0 # Validation check counter
-                    num_avg_steps = 0
-
-                
-                    #If the PPL is too high try to change the learning rate
-                    for epoch in pbar:
-                        loss = train_loop(train_loader, optimizer, criterion_train, model, clip)    
-                        if epoch % 1 == 0:
-                            epoch_start_time = time.time()
-                            sampled_epochs.append(epoch)
-                            losses_train.append(np.asarray(loss).mean())
-                            ppl_dev, loss_dev = eval_loop(dev_loader, criterion_eval, model)
-                            losses_dev.append(np.asarray(loss_dev).mean())
-                            ppl_values.append(ppl_dev) # add PPL to list
-
-                            pbar.set_description(
-                                f"Epoch: {epoch} PPL: {ppl_dev:.2f}"
-                            )
-
-                            if  ppl_dev < best_ppl: # the lower, the better
-                                best_ppl = ppl_dev
-                                best_model = copy.deepcopy(model).to('cpu')
-                                patience = 7
-                                # asgd_trigger_counter = 0
-                            else:
-                                patience -= 1
-
-                            if patience <= 0:
-                                break
-
-                            if trigger == 0 and t >= non_monotonic_trigger_window:
-                                start_idx = t - non_monotonic_trigger_window
-                                min_ppl = min(ppl_values[start_idx:t])
-
-                                if ppl_dev > min_ppl:
-                                    print(f"Triggering ASGD at epoch {epoch}")
-                                    trigger = epoch
-                            
-                            t += 1
-
-                        if trigger > 0 and epoch > trigger:
-                            num_avg_steps += 1
-                            current_sd = model.state_dict()
-                            if avg_model_sd is None:
-                                print(f"Starting averaging with model from epoch {epoch}")
-                                # Initialize avg_model_sd on CPU
-                                avg_model_sd = {k: v.cpu().clone() for k, v in current_sd.items()}
-                            else:
-                                 # Update running average (current_sd needs to be moved to CPU within the function)
-                                avg_model_sd = update_avg_model(avg_model_sd, current_sd, num_avg_steps)
+    n_epochs = 100
+    x_min, x_max = 0, n_epochs  # Limiti per l'asse x (epoche)
+    ppl_min, ppl_max = 0, 500  # Limiti per l'asse y (PPL)
+    loss_min, loss_max = 0, 10  # Limiti per l'asse y (Loss)
+    patience = 3
+    losses_train = []
+    losses_dev = []
+    sampled_epochs = []
+    best_ppl = math.inf
+    best_model = None
+    pbar = tqdm(range(1,n_epochs))
+    
+    ppl_values = []
 
 
+    #If the PPL is too high try to change the learning rate
+    for epoch in pbar:
+        loss = train_loop(train_loader, optimizer, criterion_train, model, clip)    
+        if epoch % 1 == 0:
+            sampled_epochs.append(epoch)
+            losses_train.append(np.asarray(loss).mean())
+            ppl_dev, loss_dev = eval_loop(dev_loader, criterion_eval, model)
+            losses_dev.append(np.asarray(loss_dev).mean())
+            ppl_values.append(ppl_dev) # add PPL to list
 
-                    if avg_model_sd is not None:
-                        print("\nUsing averaged model for final evaluation.")
-                        # Create a new model instance and load the averaged weights
-                        final_model = LM_LSTM_wt_vd(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"], n_layers=1, emb_dropout=ed, out_dropout=od)
-                        final_model.load_state_dict(avg_model_sd) # Load CPU state dict
-                        final_model = final_model.to(DEVICE) # Move to evaluation device
-                    elif best_model is not None:
-                        final_model = LM_LSTM_wt_vd(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"], n_layers=1, emb_dropout=ed, out_dropout=od)
-                        final_model.load_state_dict(best_model) # Load CPU state dict
-                        final_model = final_model.to(DEVICE) # Move to evaluation device
-                    else:
-                        print("\nAveraging never triggered. Using last model state for final evaluation.")
-                        # The current 'model' is the final model (already on DEVICE)
-                        final_model = model
-                        
-
-                    # best_model.to(DEVICE)
-                    final_ppl,  _ = eval_loop(test_loader, criterion_eval, final_model)
-                    # Inside the loop, append results:
-                    all_results.append({
-                        'Batch Size': bs,
-                        'Learning Rate': lr,
-                        'Embedding Dropout': ed,
-                        'Output Dropout': od,
-                        'Test PPL': final_ppl
-                    })    
-                    print(f'Test ppl for batch size {bs}, learning rate {lr}, embedding dropout {ed}, output dropout {od}: {round(final_ppl, 2)}')
+            
 
 
-                    # Save the results in a CSV file
-                    results_df = pd.DataFrame({
-                        'Epoch': sampled_epochs,
-                        'PPL': ppl_values,
-                        'Test PPL': [final_ppl] * len(sampled_epochs)
-                    })
-                    csv_filename = f'results/LSTM_wt_vd_avsgd/LSTM_ppl_results_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.csv'
-                    results_df.to_csv(csv_filename, index=False)
-                    print(f'CSV file successfully saved in {csv_filename}')
-                    
+                # Aggiorna la progress bar con il tempo stimato
+            pbar.set_description(f"Epoch: {epoch} PPL: {ppl_dev:.2f}")
 
-                    # Create ppl_dev plot
-                    fig, ax1 = plt.subplots(figsize=(10, 5))
-                    ax1.plot(sampled_epochs, ppl_values, label='PPL Dev', color='red')
-                    ax1.axvline(x=trigger, color='green', linestyle='--', linewidth=2, \
-                                label=f'ASGD Trigger @ Ep {trigger}')
-                    ax1.set_title(f'PPL Dev for lr={lr}, bs={bs}, ed={ed}, od={od}')
-                    ax1.set_xlabel('Epoch')
-                    ax1.set_ylabel('PPL')
-                    ax1.set_xlim(x_min, x_max)
-                    ax1.set_ylim(ppl_min, ppl_max)
-                    ax1.legend()
-                    ax1.grid()
+            if  ppl_dev < best_ppl: # the lower, the better
+                best_ppl = ppl_dev
+                best_model = copy.deepcopy(model).to('cpu')
+                patience = 3
+            else:
+                patience -= 1
+            
+        if patience <= 0: # Early stopping with patience
+            print(f"Early stopping triggered at epoch {epoch} for lr={lr}, bs={bs}")
+            break # Not nice but it keeps the code clean
 
-                    # Save ppl_dev plot
-                    ppl_plot_filename = f'results/LSTM_wt_vd_avsgd/plots/LSTM_ppl_plot_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.png'
-                    plt.savefig(ppl_plot_filename)
-                    plt.close(fig)
-                    print(f"PPL plot saved: '{ppl_plot_filename}'")
-
-                    # Create the loss plot
-                    fig, ax2 = plt.subplots(figsize=(10, 5))
-                    ax2.plot(sampled_epochs, losses_train, label='Train Loss', color='orange')
-                    ax2.plot(sampled_epochs, losses_dev, label='Dev Loss', color='blue')
-                    ax2.axvline(x=trigger, color='green', linestyle='--', linewidth=2, \
-                                label=f'ASGD Trigger @ Ep {trigger}')
-                    ax2.set_title(f'Train and Dev Loss for lr={lr}, bs={bs}, ed={ed}, od={od}')
-                    ax2.set_xlabel('Epoch')
-                    ax2.set_ylabel('Loss')
-                    ax2.set_xlim(x_min, x_max)
-                    ax2.set_ylim(loss_min, loss_max)
-                    ax2.legend()
-                    ax2.grid()
-
-                    # Save loss plot
-                    loss_plot_filename = f'results/LSTM_wt_vd_avsgd/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.png'
-                    plt.savefig(loss_plot_filename)
-                    plt.close(fig)
-
-                    current_configuration += 1  # Incrementa il contatore delle configurazioni
-                    print(f"Ending run #{current_configuration}/{total_configurations}")
-                    print("*"*80)
-
-                    # Estimate remaining time
-                    elapsed_time = time.time() - script_start_time
-                    if current_configuration > 0:
-                        avg_time_per_config = elapsed_time / current_configuration
-                        remaining_configurations = total_configurations - current_configuration
-                        estimated_remaining_time = avg_time_per_config * remaining_configurations
-                        
-                        # Convert seconds to a more readable format (HH:MM:SS)
-                        hours, rem = divmod(estimated_remaining_time, 3600)
-                        minutes, seconds = divmod(rem, 60)
-                        print("=" * 80)
-                        print(f"Estimated time remaining: {int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}")
-                        print("=" * 80)
-                    else:
-                        print("Estimating remaining time after the first configuration...")
+    best_model.to(DEVICE)
+    final_ppl,  _ = eval_loop(test_loader, criterion_eval, best_model)
+    # Inside the loop, append results:
+    
 
 
+    # Save the results in a CSV file
+    results_df = pd.DataFrame({
+        'Epoch': sampled_epochs,
+        'PPL': ppl_values,
+        'Test PPL': [final_ppl] * len(sampled_epochs)
+    })
+    csv_filename = f'results/LSTM_weight_tying/LSTM_ppl_results_lr_{lr}_bs_{bs}.csv'
+    results_df.to_csv(csv_filename, index=False)
+    print(f'CSV file successfully saved in {csv_filename}')
+    
 
-    # pivot_table = pd.DataFrame(all_results).pivot_table(
-    #     values='Test PPL',
-    #     index='Batch Size',  # Rows: Batch Size
-    #     columns='Learning Rate'  # Columns: Learning Rate
-    # )
+    # Create ppl_dev plot
+    fig, ax1 = plt.subplots(figsize=(10, 5))
+    ax1.plot(sampled_epochs, ppl_values, label='PPL Dev', color='red')
+    ax1.set_title(f'PPL Dev for lr={lr}, bs={bs}')
+    ax1.set_xlabel('Epoch')
+    ax1.set_ylabel('PPL')
+    ax1.set_xlim(x_min, x_max)
+    ax1.set_ylim(ppl_min, ppl_max)
+    ax1.legend()
+    ax1.grid()
 
-    # # Visualize the results with a heatmap
-    # plt.figure(figsize=(12, 8))
-    # sns.heatmap(pivot_table, annot=True, fmt=".2f", cmap="coolwarm", cbar_kws={'label': 'Test PPL'})
-    # plt.title("Heatmap of Final PPL for Different Configurations")
-    # plt.xlabel("Learning Rate")
-    # plt.ylabel("Batch Size")
-    # plt.tight_layout()
+    # Save ppl_dev plot
+    ppl_plot_filename = f'results/LSTM_weight_tying/plots/LSTM_ppl_plot_lr_{lr}_bs_{bs}.png'
+    plt.savefig(ppl_plot_filename)
+    plt.close(fig)
+    print(f"PPL plot saved: '{ppl_plot_filename}'")
 
-    # # Save the heatmap
-    # heatmap_filename = 'results/LSTM_wt_vd/plots/heatmap_final_ppl.png'
-    # plt.savefig(heatmap_filename)
-    # plt.close()
-    # print(f"Heatmap saved: '{heatmap_filename}'")
+    # Create the loss plot
+    fig, ax2 = plt.subplots(figsize=(10, 5))
+    ax2.plot(sampled_epochs, losses_train, label='Train Loss', color='orange')
+    ax2.plot(sampled_epochs, losses_dev, label='Dev Loss', color='blue')
+    ax2.set_title(f'Train and Dev Loss for lr={lr}, bs={bs}')
+    ax2.set_xlabel('Epoch')
+    ax2.set_ylabel('Loss')
+    ax2.set_xlim(x_min, x_max)
+    ax2.set_ylim(loss_min, loss_max)
+    ax2.legend()
+    ax2.grid()
 
+    # Save loss plot
+    loss_plot_filename = f'results/LSTM_weight_tying/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}.png'
+    plt.savefig(loss_plot_filename)
+    plt.close(fig)
 
-    pd.DataFrame(all_results).to_csv('results/LSTM_wt_vd_avsgd/all_results.csv', index=False)
-    print(f'All results successfully saved in results/LSTM_wt_vd_avsgd/all_results.csv')
-
-    # After the loops, find the best configuration:
-    best_result = min(all_results, key=lambda x: x['Test PPL'])
-    print(f"Best configuration: {best_result}")
-    best_result_df = pd.DataFrame([best_result])
-    best_result_df.to_csv('results/LSTM_wt_vd_avsgd/best_configuration.csv', index=False)
-    print(f'Best configuration successfully saved in results/LSTM_wt_vd_avsgd/best_configuration.csv')
-
-
+           
     
     # To save the model
-    # path = 'model_bin/model_name.pt'
-    # torch.save(model.state_dict(), path)
+    path = 'bin/LSTM_weight_tying/LSTM_weight_tying_model.pt'
+    torch.save(model.state_dict(), path)
     # To load the model you need to initialize it
     # model = LM_RNN(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"]).to(device)
     # Then you load it
