@@ -18,6 +18,7 @@ import time
 
 
 if __name__ == "__main__":
+    script_start_time = time.time() # Record start time of the script
     DEVICE = 'cuda:0' # it can be changed with 'cpu' if you do not have a gpu
     train_raw = read_file("dataset/PennTreeBank/ptb.train.txt")
     dev_raw = read_file("dataset/PennTreeBank/ptb.valid.txt")
@@ -39,21 +40,26 @@ if __name__ == "__main__":
     emb_size = 300 # Embedding size to test
     vocab_len = len(lang.word2id)
     clip = 5 # Clip the gradient
-    lr = 3 # Learning rates to test
-    bs= 32
+    lr = 3.7 # Learning rates to test
+    bs = 32
+    ed = 0.15
+    od = 0.4
 
     # Create a directory to save the results, if it doesn't exist
-    os.makedirs('results/LSTM_weight_tying/plots', exist_ok=True)
-    os.makedirs('bin/LSTM_weight_tying', exist_ok=True)
+    os.makedirs('results/LSTM_wt_vd/plots', exist_ok=True)
+    os.makedirs('bin/LSTM_wt_vd', exist_ok=True)
+    
 
 
+    # Train with differen batch size, emb size, hid size and learning rate
+    
     # Define the collate function
     train_loader = DataLoader(train_dataset, batch_size=bs, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE),  shuffle=True)
     dev_loader = DataLoader(dev_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
     test_loader = DataLoader(test_dataset, batch_size=bs*2, collate_fn=partial(collate_fn, pad_token=lang.word2id["<pad>"], DEVICE=DEVICE))
     
     # Initialize the model
-    model = LM_LSTM_weight_tying(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"]).to(DEVICE)
+    model = LM_LSTM_wt_vd(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"], n_layers=1, emb_dropout=ed, out_dropout=od).to(DEVICE)
     model.apply(init_weights)
 
     optimizer = optim.SGD(model.parameters(), lr=lr)
@@ -80,17 +86,16 @@ if __name__ == "__main__":
     for epoch in pbar:
         loss = train_loop(train_loader, optimizer, criterion_train, model, clip)    
         if epoch % 1 == 0:
+            epoch_start_time = time.time()
             sampled_epochs.append(epoch)
             losses_train.append(np.asarray(loss).mean())
             ppl_dev, loss_dev = eval_loop(dev_loader, criterion_eval, model)
             losses_dev.append(np.asarray(loss_dev).mean())
             ppl_values.append(ppl_dev) # add PPL to list
 
-            
-
-
-                # Aggiorna la progress bar con il tempo stimato
-            pbar.set_description(f"Epoch: {epoch} PPL: {ppl_dev:.2f}")
+            pbar.set_description(
+                f"Epoch: {epoch} PPL: {ppl_dev:.2f}"
+            )
 
             if  ppl_dev < best_ppl: # the lower, the better
                 best_ppl = ppl_dev
@@ -99,23 +104,20 @@ if __name__ == "__main__":
             else:
                 patience -= 1
             
-        if patience <= 0: # Early stopping with patience
-            print(f"Early stopping triggered at epoch {epoch} for lr={lr}, bs={bs}")
+        if patience <= 0: # Early stopping triggered at epoch {epoch} for lr={lr}, bs={bs}, emb_dout={ed}, out_dout={od}")
             break # Not nice but it keeps the code clean
 
     best_model.to(DEVICE)
     final_ppl,  _ = eval_loop(test_loader, criterion_eval, best_model)
     # Inside the loop, append results:
     
-
-
     # Save the results in a CSV file
     results_df = pd.DataFrame({
         'Epoch': sampled_epochs,
         'PPL': ppl_values,
         'Test PPL': [final_ppl] * len(sampled_epochs)
     })
-    csv_filename = f'results/LSTM_weight_tying/LSTM_ppl_results_lr_{lr}_bs_{bs}.csv'
+    csv_filename = f'results/LSTM_wt_vd/LSTM_ppl_results_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.csv'
     results_df.to_csv(csv_filename, index=False)
     print(f'CSV file successfully saved in {csv_filename}')
     
@@ -123,7 +125,7 @@ if __name__ == "__main__":
     # Create ppl_dev plot
     fig, ax1 = plt.subplots(figsize=(10, 5))
     ax1.plot(sampled_epochs, ppl_values, label='PPL Dev', color='red')
-    ax1.set_title(f'PPL Dev for lr={lr}, bs={bs}')
+    ax1.set_title(f'PPL Dev for lr={lr}, bs={bs}, ed={ed}, od={od}')
     ax1.set_xlabel('Epoch')
     ax1.set_ylabel('PPL')
     ax1.set_xlim(x_min, x_max)
@@ -132,7 +134,7 @@ if __name__ == "__main__":
     ax1.grid()
 
     # Save ppl_dev plot
-    ppl_plot_filename = f'results/LSTM_weight_tying/plots/LSTM_ppl_plot_lr_{lr}_bs_{bs}.png'
+    ppl_plot_filename = f'results/LSTM_wt_vd/plots/LSTM_ppl_plot_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.png'
     plt.savefig(ppl_plot_filename)
     plt.close(fig)
     print(f"PPL plot saved: '{ppl_plot_filename}'")
@@ -141,7 +143,7 @@ if __name__ == "__main__":
     fig, ax2 = plt.subplots(figsize=(10, 5))
     ax2.plot(sampled_epochs, losses_train, label='Train Loss', color='orange')
     ax2.plot(sampled_epochs, losses_dev, label='Dev Loss', color='blue')
-    ax2.set_title(f'Train and Dev Loss for lr={lr}, bs={bs}')
+    ax2.set_title(f'Train and Dev Loss for lr={lr}, bs={bs}, ed={ed}, od={od}')
     ax2.set_xlabel('Epoch')
     ax2.set_ylabel('Loss')
     ax2.set_xlim(x_min, x_max)
@@ -150,14 +152,14 @@ if __name__ == "__main__":
     ax2.grid()
 
     # Save loss plot
-    loss_plot_filename = f'results/LSTM_weight_tying/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}.png'
+    loss_plot_filename = f'results/LSTM_wt_vd/plots/LSTM_loss_plot_lr_{lr}_bs_{bs}_ed_{ed}_od_{od}.png'
     plt.savefig(loss_plot_filename)
     plt.close(fig)
 
-           
+    
     
     # To save the model
-    path = 'bin/LSTM_weight_tying/LSTM_weight_tying_model.pt'
+    path = 'bin/LSTM_wt_vd/LSTM_wt_vd_model.pt'
     torch.save(model.state_dict(), path)
     # To load the model you need to initialize it
     # model = LM_RNN(emb_size, hid_size, vocab_len, pad_index=lang.word2id["<pad>"]).to(device)
